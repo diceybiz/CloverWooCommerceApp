@@ -12,6 +12,9 @@ public interface WooCommerceApi {
     @GET("customers")
     Call<List<Customer>> getCustomers();
 
+    @GET("wallet/balance")
+    Call<WalletBalance> getWalletBalance(@Query("email") String email);
+
     @POST("wallet")
     Call<Transaction> insertNewTransaction(@Body Transaction transaction);
 }

@@ -1,7 +1,5 @@
 package com.example.cloverwoocommerceapp;
 
-import com.google.gson.annotations.SerializedName;
-
 public class MetaData {
     private String key;
     private String value;

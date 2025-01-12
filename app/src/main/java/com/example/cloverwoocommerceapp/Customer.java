@@ -10,15 +10,16 @@ public class Customer {
     @SerializedName("last_name")
     private String lastName;
     @SerializedName("meta_data")
-    private List<MetaData> metaData;
-
-    @SerializedName("billing")
+    private List<MetaData> metaDatumDAOS;
+    private String email;
     private Billing billing;
 
     public int getId() {
         return id;
     }
-
+    public String getEmail() {
+        return email;
+    }
     public String getFirstName() {
         return firstName;
     }
@@ -28,14 +29,5 @@ public class Customer {
     }
 
     public Billing getBilling(){return billing;}
-    public String getStoreCreditBalance() {
-        if (metaData != null) {
-            for (MetaData meta : metaData) {
-                if ("_current_woo_wallet_balance".equals(meta.getKey())) {
-                    return meta.getValue();
-                }
-            }
-        }
-        return null;
-    }
+
 }

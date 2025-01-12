@@ -1,7 +1,5 @@
 package com.example.cloverwoocommerceapp;
 
-import com.google.gson.annotations.SerializedName;
-
 public class Transaction {
     private String amount;
     private String type;

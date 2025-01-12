@@ -1,7 +1,6 @@
 package com.example.cloverwoocommerceapp;
 
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
@@ -15,6 +14,7 @@ import okhttp3.Request;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -34,8 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private Button fetchCustomerButton, addCreditButton, removeCreditButton;
     private TextView currentBalanceView;
     private WooCommerceApi wooCommerceApi;
-    private Customer customerCTX;
-    private String currentBalance;
+    private CustomerCTX customerCTX = new CustomerCTX();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -52,7 +51,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize Retrofit for WooCommerce API
         initWooCommerceApi();
-
         // UI listener functionality
         fetchCustomerButton.setOnClickListener(view -> fetchCustomerByPhoneNumber());
         addCreditButton.setOnClickListener(view -> updateStoreCredit("add"));
@@ -82,14 +80,28 @@ public class MainActivity extends AppCompatActivity {
                 .addConverterFactory(GsonConverterFactory.create())
                 .client(client)
                 .build();
-        customerCTX = null;
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
     }
 
+    public void setAllButtonsEnabledOrDisabled(boolean enabled){
+        if(enabled) {
+            fetchCustomerButton.setEnabled(true);
+            addCreditButton.setEnabled(true);
+            removeCreditButton.setEnabled(true);
+        }else{
+            fetchCustomerButton.setEnabled(false);
+            addCreditButton.setEnabled(false);
+            removeCreditButton.setEnabled(false);
+        }
+    }
+
     private void fetchCustomerByPhoneNumber() {
+        customerCTX = new CustomerCTX();
+        setAllButtonsEnabledOrDisabled(false);
         String phoneNumber = phoneNumberInput.getText().toString();
         if (phoneNumber.isEmpty()) {
             showToast("Please enter a phone number");
+            setAllButtonsEnabledOrDisabled(true);
             return;
         }
 
@@ -102,25 +114,51 @@ public class MainActivity extends AppCompatActivity {
                     // this is inefficient but will not likely cause problems or bandwidth issues without there being 1000's of users
                     Optional<Customer> customer = response.body().stream().filter(c -> c.getBilling().getPhone().equals(phoneNumber)).findFirst();
                     if(customer.isPresent()){
-                        customerCTX = customer.get();
-                        //this gets nothing but a meta data key, its completely worthless. also retuning null when it shouldn't even if its nonsense data
-                        currentBalance = customerCTX.getStoreCreditBalance();
-                        //this shows first name and last name fine, but current balance shows nothing ever
-                        currentBalanceView.setText(customerCTX.getFirstName()+" "+ customerCTX.getLastName()+" Balance: " + (currentBalance != null ? currentBalance : "0"));
+                        customerCTX.setCustomer(customer.get());
+                        getWalletBalanceData();
                     }else{
                         currentBalanceView.setText("please enter a valid customer phone number");
                         showToast("Customer not found");
-                        customerCTX = null;
+                        setAllButtonsEnabledOrDisabled(true);
                     }
                 } else {
                     currentBalanceView.setText("HTTP code: "+ response.code());
                     showToast("the response was empty");
-                    customerCTX = null;
+                    setAllButtonsEnabledOrDisabled(true);
                 }
             }
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
+                setAllButtonsEnabledOrDisabled(true);
+            }
+        });
+    }
+
+    private void getWalletBalanceData(){
+        if (customerCTX.getCustomer() == null) {
+            showToast("No customer is selected, please try again");
+            return;
+        }
+        Call<WalletBalance> call = wooCommerceApi.getWalletBalance(customerCTX.getCustomer().getEmail());
+        call.enqueue(new Callback<WalletBalance>() {
+            @Override
+            public void onResponse(Call<WalletBalance> call, Response<WalletBalance> response) {
+                setAllButtonsEnabledOrDisabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    customerCTX.setWalletBalance(response.body());
+                    currentBalanceView.setText(customerCTX.getCustomer().getFirstName() + " " + customerCTX.getCustomer().getLastName() +
+                            " Balance: " + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
+                }else{
+                    currentBalanceView.setText("there is an error with the balance for this user");
+                    showToast("balance not found");
+                    setAllButtonsEnabledOrDisabled(true);
+                }
+            }
+            @Override
+            public void onFailure(Call<WalletBalance> call, Throwable t) {
+                showToast("Failed to reach WooCommerce: " + t.getMessage());
+                setAllButtonsEnabledOrDisabled(true);
             }
         });
     }
@@ -137,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        Transaction transaction = new Transaction(amount, type, "Store credit adjustment", String.valueOf(customerCTX.getId()));
+        Transaction transaction = new Transaction(amount, type, "Store credit adjustment", customerCTX.getCustomer().getEmail());
         Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {
             @Override
