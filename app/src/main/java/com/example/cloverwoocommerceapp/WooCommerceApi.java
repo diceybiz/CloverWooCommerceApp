@@ -15,6 +15,9 @@ public interface WooCommerceApi {
     @GET("wallet/balance")
     Call<WalletBalance> getWalletBalance(@Query("email") String email);
 
+    @POST("wallet/balance")
+    Call<WalletBalance> settWalletBalance();
+
     @POST("wallet")
     Call<Transaction> insertNewTransaction(@Body Transaction transaction);
 }

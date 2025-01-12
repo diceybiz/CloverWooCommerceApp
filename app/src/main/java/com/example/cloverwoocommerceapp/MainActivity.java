@@ -9,6 +9,8 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.gson.Gson;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -18,6 +20,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +39,15 @@ public class MainActivity extends AppCompatActivity {
     private WooCommerceApi wooCommerceApi;
     private CustomerCTX customerCTX = new CustomerCTX();
 
+    private enum transactionType {
+        DEBIT("debit"),
+        CREDIT("credit");
+        public final String typeValue;
+        transactionType(String typeValue) {
+            this.typeValue = typeValue;
+        }
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,8 +65,8 @@ public class MainActivity extends AppCompatActivity {
         initWooCommerceApi();
         // UI listener functionality
         fetchCustomerButton.setOnClickListener(view -> fetchCustomerByPhoneNumber());
-        addCreditButton.setOnClickListener(view -> updateStoreCredit("add"));
-        removeCreditButton.setOnClickListener(view -> updateStoreCredit("remove"));
+        addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
+        removeCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.DEBIT));
     }
     //before startup, moving loggers to top level possible?
     private void initWooCommerceApi() {
@@ -83,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
     }
 
-    public void setAllButtonsEnabledOrDisabled(boolean enabled){
+    public void setAllButtonsEnabled(boolean enabled){
         if(enabled) {
             fetchCustomerButton.setEnabled(true);
             addCreditButton.setEnabled(true);
@@ -97,11 +109,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchCustomerByPhoneNumber() {
         customerCTX = new CustomerCTX();
-        setAllButtonsEnabledOrDisabled(false);
+        setAllButtonsEnabled(false);
         String phoneNumber = phoneNumberInput.getText().toString();
         if (phoneNumber.isEmpty()) {
             showToast("Please enter a phone number");
-            setAllButtonsEnabledOrDisabled(true);
+            setAllButtonsEnabled(true);
             return;
         }
 
@@ -119,18 +131,18 @@ public class MainActivity extends AppCompatActivity {
                     }else{
                         currentBalanceView.setText("please enter a valid customer phone number");
                         showToast("Customer not found");
-                        setAllButtonsEnabledOrDisabled(true);
+                        setAllButtonsEnabled(true);
                     }
                 } else {
                     currentBalanceView.setText("HTTP code: "+ response.code());
                     showToast("the response was empty");
-                    setAllButtonsEnabledOrDisabled(true);
+                    setAllButtonsEnabled(true);
                 }
             }
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
-                setAllButtonsEnabledOrDisabled(true);
+                setAllButtonsEnabled(true);
             }
         });
     }
@@ -144,53 +156,59 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<WalletBalance>() {
             @Override
             public void onResponse(Call<WalletBalance> call, Response<WalletBalance> response) {
-                setAllButtonsEnabledOrDisabled(true);
+                setAllButtonsEnabled(true);
                 if (response.isSuccessful() && response.body() != null) {
                     customerCTX.setWalletBalance(response.body());
-                    currentBalanceView.setText(customerCTX.getCustomer().getFirstName() + " " + customerCTX.getCustomer().getLastName() +
-                            " Balance: " + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
+                    currentBalanceView.setText("Customer: " + customerCTX.getCustomer().getFirstName() + " " + customerCTX.getCustomer().getLastName() +
+                            " | Balance: " + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
                 }else{
                     currentBalanceView.setText("there is an error with the balance for this user");
                     showToast("balance not found");
-                    setAllButtonsEnabledOrDisabled(true);
+                    setAllButtonsEnabled(true);
                 }
             }
             @Override
             public void onFailure(Call<WalletBalance> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
-                setAllButtonsEnabledOrDisabled(true);
+                setAllButtonsEnabled(true);
             }
         });
     }
 
-    private void updateStoreCredit(String type) {
+    private void updateStoreCredit(transactionType type) {
+        setAllButtonsEnabled(false);
         if (customerCTX == null) {
-            showToast("No customer selected");
+            showToast("there was an issue using this customer, please try to search again");
+            setAllButtonsEnabled(true);
             return;
         }
 
         String amount = amountInput.getText().toString();
         if (amount.isEmpty()) {
             showToast("Please enter an amount");
+            setAllButtonsEnabled(true);
             return;
         }
 
-        Transaction transaction = new Transaction(amount, type, "Store credit adjustment", customerCTX.getCustomer().getEmail());
+        Transaction transaction = new Transaction(amount, type.typeValue, "Store credit adjustment", customerCTX.getCustomer().getEmail());
         Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {
             @Override
-            public void onResponse(Call<Transaction> call, retrofit2.Response<Transaction> response) {
+            public void onResponse(Call<Transaction> call, Response<Transaction> response) {
+                //TODO this will return 200 even if the call fails due to an incorrect type value which is dumb, possibly caused due to retrofitting.
+                // figure out a way to reach the {"response":"error"} that comes later in the response outside the response envelope for better error handling
                 if (response.isSuccessful()) {
-                    showToast("Store credit " + type + "ed successfully");
-                    fetchCustomerByPhoneNumber(); // Refresh customer data
+                    showToast("Store credit " + type.typeValue + "ed successfully");
+                    getWalletBalanceData();
                 } else {
                     showToast("Failed to " + type + " store credit");
+                    setAllButtonsEnabled(true);
                 }
             }
-
             @Override
             public void onFailure(Call<Transaction> call, Throwable t) {
                 showToast("Error: " + t.getMessage());
+                setAllButtonsEnabled(true);
             }
         });
     }
