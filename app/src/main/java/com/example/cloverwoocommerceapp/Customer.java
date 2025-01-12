@@ -5,13 +5,10 @@ import java.util.List;
 
 public class Customer {
     private int id;
-
     @SerializedName("first_name")
     private String firstName;
-
     @SerializedName("last_name")
     private String lastName;
-
     @SerializedName("meta_data")
     private List<MetaData> metaData;
 

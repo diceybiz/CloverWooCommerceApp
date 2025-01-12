@@ -82,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
                 .addConverterFactory(GsonConverterFactory.create())
                 .client(client)
                 .build();
-
+        customerCTX = null;
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
     }
 
@@ -98,17 +98,24 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<Customer>> call, retrofit2.Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
-
+                    //TODO eventually use PHP query in backend or access wooCommerce db directly to query properly.
+                    // this is inefficient but will not likely cause problems or bandwidth issues without there being 1000's of users
                     Optional<Customer> customer = response.body().stream().filter(c -> c.getBilling().getPhone().equals(phoneNumber)).findFirst();
                     if(customer.isPresent()){
                         customerCTX = customer.get();
-                        currentBalance = customer.get().getStoreCreditBalance();
-                        currentBalanceView.setText(customer.get().getFirstName()+" "+ customer.get().getLastName() +" Balance: " + (currentBalance != null ? currentBalance : "0"));
+                        //this gets nothing but a meta data key, its completely worthless. also retuning null when it shouldn't even if its nonsense data
+                        currentBalance = customerCTX.getStoreCreditBalance();
+                        //this shows first name and last name fine, but current balance shows nothing ever
+                        currentBalanceView.setText(customerCTX.getFirstName()+" "+ customerCTX.getLastName()+" Balance: " + (currentBalance != null ? currentBalance : "0"));
                     }else{
+                        currentBalanceView.setText("please enter a valid customer phone number");
                         showToast("Customer not found");
+                        customerCTX = null;
                     }
                 } else {
+                    currentBalanceView.setText("HTTP code: "+ response.code());
                     showToast("the response was empty");
+                    customerCTX = null;
                 }
             }
             @Override
