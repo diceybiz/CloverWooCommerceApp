@@ -15,6 +15,7 @@
     <!-- Other Permissions -->
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.BIND_GET_INSTALL_REFERRER_SERVICE" />
+    <uses-permission android:name="com.clover.permission.REGISTER_TENDER" />
 
 
     <application
@@ -34,9 +35,16 @@
             android:theme="@style/Theme.CloverWooCommerceApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.clover.intent.action.REGISTER_TENDER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <meta-data
+                android:name="clover.intent.extra.TENDER_LABEL_KEY"
+                android:value="Store Credit Manager" />
         </activity>
     </application>
 

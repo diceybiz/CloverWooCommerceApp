@@ -1,5 +1,6 @@
 package com.example.cloverwoocommerceapp;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -51,6 +52,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Intent intent = getIntent();
+        if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
+            handleCustomTender(intent);
+        }
         setContentView(R.layout.activity_main);
 
         // Initialize UI elements
@@ -95,6 +101,20 @@ public class MainActivity extends AppCompatActivity {
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
     }
 
+    private void handleCustomTender(Intent intent) {
+        // Get the transaction amount (if any)
+        long amount = intent.getLongExtra("clover.intent.extra.AMOUNT", 0);
+
+        // Example: Display a Toast message
+        Toast.makeText(this, "Custom tender launched. Amount: " + amount, Toast.LENGTH_SHORT).show();
+
+        // Send the result back to Clover Register
+        Intent result = new Intent();
+        result.putExtra("clover.intent.extra.RESULT_TENDER", "Store Credit Processed");
+        setResult(RESULT_OK, result);
+        finish(); // Close the activity
+    }
+
     public void setAllButtonsEnabled(boolean enabled){
         if(enabled) {
             fetchCustomerButton.setEnabled(true);
@@ -120,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
         Call<List<Customer>> call = wooCommerceApi.getCustomers();
         call.enqueue(new Callback<List<Customer>>() {
             @Override
-            public void onResponse(Call<List<Customer>> call, retrofit2.Response<List<Customer>> response) {
+            public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
                     //TODO eventually use PHP query in backend or access wooCommerce db directly to query properly.
                     // this is inefficient but will not likely cause problems or bandwidth issues without there being 1000's of users
@@ -190,6 +210,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        //TODO this call might be able to be changed to a POST to wallet/balance endpoint.
+        // after doing the new balance calc locally, just POST new balance
         Transaction transaction = new Transaction(amount, type.typeValue, "Store credit adjustment", customerCTX.getCustomer().getEmail());
         Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {
