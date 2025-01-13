@@ -9,12 +9,12 @@
     android:padding="16dp">
 
 
-    <EditText
-        android:id="@+id/phone_number_input"
+    <AutoCompleteTextView
+        android:id="@+id/email_autocomplete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter phone number"
-        android:inputType="phone" />
+        android:hint="Enter email"
+        android:inputType="textEmailAddress" />
 
     <Button
         android:id="@+id/search_button"

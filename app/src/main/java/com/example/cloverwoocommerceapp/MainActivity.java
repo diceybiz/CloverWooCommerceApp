@@ -2,15 +2,16 @@ package com.example.cloverwoocommerceapp;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Handler;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-
-import com.google.gson.Gson;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -21,7 +22,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,21 +30,25 @@ public class MainActivity extends AppCompatActivity {
 
     // WooCommerce API constants,
     //TODO move these to some sort of config, they shouldn't be hardcoded. fuck if i know where yet though
-    private static final String wooCommerceURL = "https://dicey.biz/wp-json/wc/v3/";
+    private static final String wooCommerceURL = "https://dicey.biz/wp-json/";
     private static final String CONSUMER_KEY = "ck_fd49704c7f0abb0d51d8f410fc6aa5a3d0ca10e9";
     private static final String CONSUMER_SECRET = "cs_c15cb676dc137fd0a2d30b8b711f7ff5107e31cb";
 
     // UI Elements
-    private EditText phoneNumberInput, amountInput;
+    private EditText amountInput;
+    private AutoCompleteTextView emailAutoComplete;
     private Button fetchCustomerButton, addCreditButton, removeCreditButton;
     private TextView currentBalanceView;
     private WooCommerceApi wooCommerceApi;
     private CustomerCTX customerCTX = new CustomerCTX();
+    private final List<Customer> tempCustomerList = new ArrayList<>();
+    private final List<String> emailList = new ArrayList<>();
 
     private enum transactionType {
         DEBIT("debit"),
         CREDIT("credit");
         public final String typeValue;
+
         transactionType(String typeValue) {
             this.typeValue = typeValue;
         }
@@ -60,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         // Initialize UI elements
-        phoneNumberInput = findViewById(R.id.phone_number_input);
+        emailAutoComplete = findViewById(R.id.email_autocomplete);
         amountInput = findViewById(R.id.amount_edit_text);
         fetchCustomerButton = findViewById(R.id.search_button);
         addCreditButton = findViewById(R.id.add_button);
@@ -70,10 +75,11 @@ public class MainActivity extends AppCompatActivity {
         // Initialize Retrofit for WooCommerce API
         initWooCommerceApi();
         // UI listener functionality
-        fetchCustomerButton.setOnClickListener(view -> fetchCustomerByPhoneNumber());
+        fetchCustomerButton.setOnClickListener(view -> fetchCustomerByEmail());
         addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
         removeCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.DEBIT));
     }
+
     //before startup, moving loggers to top level possible?
     private void initWooCommerceApi() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
@@ -99,7 +105,9 @@ public class MainActivity extends AppCompatActivity {
                 .client(client)
                 .build();
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
+        fetchAllCustomers(1, 100);
     }
+
 
     private void handleCustomTender(Intent intent) {
         // Get the transaction amount (if any)
@@ -115,50 +123,80 @@ public class MainActivity extends AppCompatActivity {
         finish(); // Close the activity
     }
 
-    public void setAllButtonsEnabled(boolean enabled){
-        if(enabled) {
+    public void setAllButtonsEnabled(boolean enabled) {
+        if (enabled) {
             fetchCustomerButton.setEnabled(true);
             addCreditButton.setEnabled(true);
             removeCreditButton.setEnabled(true);
-        }else{
+        } else {
             fetchCustomerButton.setEnabled(false);
             addCreditButton.setEnabled(false);
             removeCreditButton.setEnabled(false);
         }
     }
 
-    private void fetchCustomerByPhoneNumber() {
+    private void fetchAllCustomers(int page, int perPage) {
+        Call<List<Customer>> call = wooCommerceApi.getAllCustomers(page, perPage);
+        call.enqueue(new Callback<List<Customer>>() {
+            @Override
+            public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    tempCustomerList.addAll(response.body());
+                }
+                int totalPages = Integer.parseInt(response.headers().get("X-WP-TotalPages") != null ? response.headers().get("X-WP-TotalPages") : "1");
+                if (page < totalPages) {
+                    new Handler().postDelayed(() -> fetchAllCustomers(page + 1, perPage), 500);
+                } else {
+                    for (Customer customer : tempCustomerList) {
+                        emailList.add(customer.getEmail());
+                    }
+                    tempCustomerList.clear();
+                    setupEmailSearch();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Customer>> call, Throwable t) {
+            }
+        });
+    }
+
+    private void setupEmailSearch() {
+        ArrayAdapter<String> emailAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, emailList);
+        emailAutoComplete.setAdapter(emailAdapter);
+        emailAutoComplete.setThreshold(2);
+    }
+
+    private void fetchCustomerByEmail() {
         customerCTX = new CustomerCTX();
         setAllButtonsEnabled(false);
-        String phoneNumber = phoneNumberInput.getText().toString();
-        if (phoneNumber.isEmpty()) {
-            showToast("Please enter a phone number");
+        String email = emailAutoComplete.getText().toString();
+        if (email.isEmpty()) {
+            showToast("Please enter a email");
             setAllButtonsEnabled(true);
             return;
         }
-
-        Call<List<Customer>> call = wooCommerceApi.getCustomers();
+        Call<List<Customer>> call = wooCommerceApi.getCustomerByEmail(email);
         call.enqueue(new Callback<List<Customer>>() {
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
-                    //TODO eventually use PHP query in backend or access wooCommerce db directly to query properly.
-                    // this is inefficient but will not likely cause problems or bandwidth issues without there being 1000's of users
-                    Optional<Customer> customer = response.body().stream().filter(c -> c.getBilling().getPhone().equals(phoneNumber)).findFirst();
-                    if(customer.isPresent()){
-                        customerCTX.setCustomer(customer.get());
+                    Customer customer = response.body().get(0);
+                    if (customer != null) {
+                        customerCTX.setCustomer(customer);
                         getWalletBalanceData();
-                    }else{
+                    } else {
                         currentBalanceView.setText("please enter a valid customer phone number");
                         showToast("Customer not found");
                         setAllButtonsEnabled(true);
                     }
                 } else {
-                    currentBalanceView.setText("HTTP code: "+ response.code());
+                    currentBalanceView.setText("HTTP code: " + response.code());
                     showToast("the response was empty");
                     setAllButtonsEnabled(true);
                 }
             }
+
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
@@ -167,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void getWalletBalanceData(){
+    private void getWalletBalanceData() {
         if (customerCTX.getCustomer() == null) {
             showToast("No customer is selected, please try again");
             return;
@@ -181,12 +219,13 @@ public class MainActivity extends AppCompatActivity {
                     customerCTX.setWalletBalance(response.body());
                     currentBalanceView.setText("Customer: " + customerCTX.getCustomer().getFirstName() + " " + customerCTX.getCustomer().getLastName() +
                             " | Balance: " + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
-                }else{
+                } else {
                     currentBalanceView.setText("there is an error with the balance for this user");
                     showToast("balance not found");
                     setAllButtonsEnabled(true);
                 }
             }
+
             @Override
             public void onFailure(Call<WalletBalance> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
@@ -227,6 +266,7 @@ public class MainActivity extends AppCompatActivity {
                     setAllButtonsEnabled(true);
                 }
             }
+
             @Override
             public void onFailure(Call<Transaction> call, Throwable t) {
                 showToast("Error: " + t.getMessage());
