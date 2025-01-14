@@ -234,6 +234,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     private void updateStoreCredit(transactionType type) {
         setAllButtonsEnabled(false);
         if (customerCTX == null) {
