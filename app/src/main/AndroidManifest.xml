@@ -15,7 +15,9 @@
     <!-- Other Permissions -->
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.BIND_GET_INSTALL_REFERRER_SERVICE" />
+    <uses-permission android:name="com.clover.permission.CREATE_TENDER" />
     <uses-permission android:name="com.clover.permission.REGISTER_TENDER" />
+    <uses-permission android:name="com.clover.permission.ACTION_PAY" />
 
 
     <application

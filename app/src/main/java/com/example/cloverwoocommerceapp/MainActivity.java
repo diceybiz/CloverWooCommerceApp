@@ -11,10 +11,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.accounts.Account;
 import android.app.Activity;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
 import android.os.AsyncTask;
 import android.content.Context;
 import android.util.Log;
@@ -42,6 +38,9 @@ import java.util.Optional;
 
 public class MainActivity extends AppCompatActivity {
 
+    // ADDED CODE: TAG constant (for logging in createTenderType)
+    private static final String TAG = "MainActivity"; // Or use MainActivity.class.getSimpleName()
+
     // WooCommerce API constants,
     //TODO move these to some sort of config, they shouldn't be hardcoded. fuck if i know where yet though
     private static final String wooCommerceURL = "https://dicey.biz/wp-json/";
@@ -49,7 +48,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String CONSUMER_SECRET = "cs_c15cb676dc137fd0a2d30b8b711f7ff5107e31cb";
 
     //Kellen has no idea what hes doing
-
 
     // UI Elements
     private EditText amountInput;
@@ -95,9 +93,9 @@ public class MainActivity extends AppCompatActivity {
         getTenderButton = findViewById(R.id.getTender);
         resultTextView = findViewById(R.id.resultTextView);
 
-
         // Initialize Retrofit for WooCommerce API
         initWooCommerceApi();
+
         // UI listener functionality
         fetchCustomerButton.setOnClickListener(view -> fetchCustomerByEmail());
         addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
@@ -130,10 +128,7 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
         fetchAllCustomers(1, 100);
-
-
     }
-
 
     private void handleCustomTender(Intent intent) {
         // Get the transaction amount (if any)
@@ -225,7 +220,6 @@ public class MainActivity extends AppCompatActivity {
                 resultTextView.setText(text);
             }
 
-
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
@@ -245,18 +239,17 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
                 setAllButtonsEnabled(true);
             }
+
             public void onServiceFailure(ResultStatus status) {
                 resultTextView.setText(status.getStatusMessage());
             }
         });
     }
-
 
     private void getWalletBalanceData() {
         if (customerCTX.getCustomer() == null) {
@@ -270,14 +263,14 @@ public class MainActivity extends AppCompatActivity {
                 setAllButtonsEnabled(true);
                 if (response.isSuccessful() && response.body() != null) {
                     customerCTX.setWalletBalance(response.body());
-                    currentBalanceView.setText("Customer: " + customerCTX.getCustomer().getFirstName() + " " + customerCTX.getCustomer().getLastName() +
-                            " | Balance: " + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
+                    currentBalanceView.setText("Customer: " + customerCTX.getCustomer().getFirstName() + " "
+                            + customerCTX.getCustomer().getLastName() + " | Balance: "
+                            + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
                 } else {
                     currentBalanceView.setText("there is an error with the balance for this user");
                     showToast("balance not found");
                     setAllButtonsEnabled(true);
                 }
-
             }
 
             @Override
@@ -287,7 +280,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
 
     private void updateStoreCredit(transactionType type) {
         setAllButtonsEnabled(false);
@@ -304,16 +296,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        //TODO this call might be able to be changed to a POST to wallet/balance endpoint.
-        // after doing the new balance calc locally, just POST new balance
-
         Transaction transaction = new Transaction(amount, type.typeValue, "Store credit adjustment", customerCTX.getCustomer().getEmail());
         Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {
             @Override
             public void onResponse(Call<Transaction> call, Response<Transaction> response) {
-                //TODO this will return 200 even if the call fails due to an incorrect type value which is dumb, possibly caused due to retrofitting.
-                // figure out a way to reach the {"response":"error"} that comes later in the response outside the response envelope for better error handling
                 if (response.isSuccessful()) {
                     showToast("Store credit " + type.typeValue + "ed successfully");
                     getWalletBalanceData();
@@ -333,5 +320,43 @@ public class MainActivity extends AppCompatActivity {
 
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    // ADDED CODE: The createTenderType method
+    private void createTenderType(final Context context) {
+        new AsyncTask<Void, Void, Exception>() {
+
+            private TenderConnector tenderConnector;
+
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                tenderConnector = new TenderConnector(context, CloverAccount.getAccount(context), null);
+                tenderConnector.connect();
+            }
+
+            @Override
+            protected Exception doInBackground(Void... params) {
+                try {
+                    // This checks if the custom tender exists; if not, it creates it.
+                    tenderConnector.checkAndCreateTender(
+                            getString(R.string.tender_name), // the label shown on the register
+                            getPackageName(),
+                            true,  // editable
+                            false  // opens cash drawer
+                    );
+                } catch (Exception exception) {
+                    Log.e(TAG, exception.getMessage(), exception.getCause());
+                    return exception;
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Exception exception) {
+                tenderConnector.disconnect();
+                tenderConnector = null;
+            }
+        }.execute();
     }
 }
