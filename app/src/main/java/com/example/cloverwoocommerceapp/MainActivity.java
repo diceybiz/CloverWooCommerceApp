@@ -9,9 +9,23 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.accounts.Account;
+import android.app.Activity;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import android.os.AsyncTask;
+import android.content.Context;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.clover.sdk.util.CloverAccount;
+import com.clover.sdk.v1.ResultStatus;
+import com.clover.sdk.v1.tender.Tender;
+import com.clover.sdk.v1.tender.TenderConnector;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -34,11 +48,14 @@ public class MainActivity extends AppCompatActivity {
     private static final String CONSUMER_KEY = "ck_fd49704c7f0abb0d51d8f410fc6aa5a3d0ca10e9";
     private static final String CONSUMER_SECRET = "cs_c15cb676dc137fd0a2d30b8b711f7ff5107e31cb";
 
+    //Kellen has no idea what hes doing
+
+
     // UI Elements
     private EditText amountInput;
     private AutoCompleteTextView emailAutoComplete;
-    private Button fetchCustomerButton, addCreditButton, removeCreditButton;
-    private TextView currentBalanceView;
+    private Button fetchCustomerButton, addCreditButton, removeCreditButton, newTenderButton, getTenderButton;
+    private TextView currentBalanceView, resultTextView;
     private WooCommerceApi wooCommerceApi;
     private CustomerCTX customerCTX = new CustomerCTX();
     private final List<Customer> tempCustomerList = new ArrayList<>();
@@ -53,6 +70,9 @@ public class MainActivity extends AppCompatActivity {
             this.typeValue = typeValue;
         }
     }
+
+    private TenderConnector tenderConnector;
+    private Account account;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -71,6 +91,10 @@ public class MainActivity extends AppCompatActivity {
         addCreditButton = findViewById(R.id.add_button);
         removeCreditButton = findViewById(R.id.subtract_button);
         currentBalanceView = findViewById(R.id.result_text_view);
+        newTenderButton = findViewById(R.id.newTender);
+        getTenderButton = findViewById(R.id.getTender);
+        resultTextView = findViewById(R.id.resultTextView);
+
 
         // Initialize Retrofit for WooCommerce API
         initWooCommerceApi();
@@ -106,6 +130,8 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
         fetchAllCustomers(1, 100);
+
+
     }
 
 
@@ -132,6 +158,21 @@ public class MainActivity extends AppCompatActivity {
             fetchCustomerButton.setEnabled(false);
             addCreditButton.setEnabled(false);
             removeCreditButton.setEnabled(false);
+        }
+    }
+
+    private void connect() {
+        disconnect();
+        if (account != null) {
+            tenderConnector = new TenderConnector(this, account, null);
+            tenderConnector.connect();
+        }
+    }
+
+    private void disconnect() {
+        if (tenderConnector != null) {
+            tenderConnector.disconnect();
+            tenderConnector = null;
         }
     }
 
@@ -178,6 +219,13 @@ public class MainActivity extends AppCompatActivity {
         }
         Call<List<Customer>> call = wooCommerceApi.getCustomerByEmail(email);
         call.enqueue(new Callback<List<Customer>>() {
+            public void onServiceSuccess(Tender result, ResultStatus status) {
+                String text = "Custom Tender:\n";
+                text += "  " + result.getId() + " , " + result.getLabel() + " , " + result.getLabelKey() + " , " + result.getEnabled() + " , " + result.getOpensCashDrawer() + "\n";
+                resultTextView.setText(text);
+            }
+
+
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
@@ -197,13 +245,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
                 setAllButtonsEnabled(true);
             }
+            public void onServiceFailure(ResultStatus status) {
+                resultTextView.setText(status.getStatusMessage());
+            }
         });
     }
+
 
     private void getWalletBalanceData() {
         if (customerCTX.getCustomer() == null) {
@@ -224,6 +277,7 @@ public class MainActivity extends AppCompatActivity {
                     showToast("balance not found");
                     setAllButtonsEnabled(true);
                 }
+
             }
 
             @Override
@@ -252,6 +306,7 @@ public class MainActivity extends AppCompatActivity {
 
         //TODO this call might be able to be changed to a POST to wallet/balance endpoint.
         // after doing the new balance calc locally, just POST new balance
+
         Transaction transaction = new Transaction(amount, type.typeValue, "Store credit adjustment", customerCTX.getCustomer().getEmail());
         Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {

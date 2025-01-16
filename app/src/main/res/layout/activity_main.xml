@@ -8,7 +8,6 @@
     android:gravity="center"
     android:padding="16dp">
 
-
     <AutoCompleteTextView
         android:id="@+id/email_autocomplete"
         android:layout_width="match_parent"
@@ -28,8 +27,6 @@
         android:layout_height="wrap_content"
         android:text="Store credit balance will be displayed here" />
 
-    <!-- Add more UI components as needed -->
-
     <EditText
         android:id="@+id/amount_edit_text"
         android:layout_width="match_parent"
@@ -47,4 +44,25 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Subtract Credit" />
+
+    <!-- New Button for Creating Tender -->
+    <Button
+        android:id="@+id/newTender"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Create Tender" />
+
+    <!-- New Button for Getting Tenders -->
+    <Button
+        android:id="@+id/getTender"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Get Tenders" />
+
+    <!-- TextView for Tender Results -->
+    <TextView
+        android:id="@+id/resultTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tender results will be displayed here" />
 </LinearLayout>
