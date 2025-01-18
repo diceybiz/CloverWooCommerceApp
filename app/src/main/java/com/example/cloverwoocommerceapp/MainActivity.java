@@ -22,6 +22,7 @@ import com.clover.sdk.util.CloverAccount;
 import com.clover.sdk.v1.ResultStatus;
 import com.clover.sdk.v1.tender.Tender;
 import com.clover.sdk.v1.tender.TenderConnector;
+import com.example.cloverwoocommerceapp.BuildConfig;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -80,7 +81,11 @@ public class MainActivity extends AppCompatActivity {
         if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
             handleCustomTender(intent);
         }
+        createTenderType(this);
+
         setContentView(R.layout.activity_main);
+
+
 
         // Initialize UI elements
         emailAutoComplete = findViewById(R.id.email_autocomplete);
@@ -324,6 +329,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ADDED CODE: The createTenderType method
     private void createTenderType(final Context context) {
+        Log.d(TAG, "createTenderType() called"); // Log statement
         new AsyncTask<Void, Void, Exception>() {
 
             private TenderConnector tenderConnector;
@@ -331,6 +337,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             protected void onPreExecute() {
                 super.onPreExecute();
+                Account cloverAcc = CloverAccount.getAccount(context);
+                Log.d("TENDER", "Clover Account = " + cloverAcc);
+                if (cloverAcc == null) {
+                    Log.e("TENDER", "No Clover account found! Cannot create tender.");
+                    return;
+                }
+
                 tenderConnector = new TenderConnector(context, CloverAccount.getAccount(context), null);
                 tenderConnector.connect();
             }
@@ -338,6 +351,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             protected Exception doInBackground(Void... params) {
                 try {
+                    Log.d("TENDER", "About to call checkAndCreateTender...");
+
                     // This checks if the custom tender exists; if not, it creates it.
                     tenderConnector.checkAndCreateTender(
                             getString(R.string.tender_name), // the label shown on the register
@@ -345,8 +360,9 @@ public class MainActivity extends AppCompatActivity {
                             true,  // editable
                             false  // opens cash drawer
                     );
+                    Log.d("TENDER", "checkAndCreateTender call completed");
                 } catch (Exception exception) {
-                    Log.e(TAG, exception.getMessage(), exception.getCause());
+                    Log.e("TENDER", "Error creating tender", exception);
                     return exception;
                 }
                 return null;
@@ -356,6 +372,7 @@ public class MainActivity extends AppCompatActivity {
             protected void onPostExecute(Exception exception) {
                 tenderConnector.disconnect();
                 tenderConnector = null;
+                Log.d("TENDER", "TenderConnector disconnected");
             }
         }.execute();
     }

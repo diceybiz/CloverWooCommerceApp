@@ -33,6 +33,7 @@ android {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         val buildDate = dateFormat.format(Date())
         buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
+
     }
 
     flavorDimensions.add("targetSdk")
