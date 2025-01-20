@@ -22,6 +22,7 @@ import com.clover.sdk.util.CloverAccount;
 import com.clover.sdk.v1.ResultStatus;
 import com.clover.sdk.v1.tender.Tender;
 import com.clover.sdk.v1.tender.TenderConnector;
+import com.clover.sdk.v1.Intents;
 import com.example.cloverwoocommerceapp.BuildConfig;
 
 import okhttp3.OkHttpClient;
@@ -36,6 +37,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -78,7 +80,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
-        if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
+        if ("clover.intent.action.PAY".equals(intent.getAction())) {
+            handlePaymentIntent(intent);
+        } else if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
             handleCustomTender(intent);
         }
         createTenderType(this);
@@ -105,6 +109,36 @@ public class MainActivity extends AppCompatActivity {
         fetchCustomerButton.setOnClickListener(view -> fetchCustomerByEmail());
         addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
         removeCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.DEBIT));
+    }
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        if ("clover.intent.action.PAY".equals(intent.getAction())) {
+            handlePaymentIntent(intent);
+        } else if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
+            handleCustomTender(intent);
+        }
+    }
+
+    private void handlePaymentIntent(Intent intent) {
+        long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
+        String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
+        Tender tender = intent.getParcelableExtra(Intents.EXTRA_TENDER);
+
+        Log.d(TAG, "Processing payment: Amount=" + amount + ", OrderId=" + orderId + ", Tender=" + tender);
+
+        // Example: Display a Toast and send back a success result
+        Toast.makeText(this, "Processing payment of $" + (amount / 100.0), Toast.LENGTH_SHORT).show();
+
+        // Prepare result intent
+        Intent result = new Intent();
+        result.putExtra(Intents.EXTRA_CLIENT_ID, UUID.randomUUID().toString());
+        result.putExtra(Intents.EXTRA_NOTE, "Payment successfully processed");
+
+        // Return the result
+        setResult(RESULT_OK, result);
+        finish();
     }
 
     //before startup, moving loggers to top level possible?
@@ -135,19 +169,46 @@ public class MainActivity extends AppCompatActivity {
         fetchAllCustomers(1, 100);
     }
 
-    private void handleCustomTender(Intent intent) {
-        // Get the transaction amount (if any)
-        long amount = intent.getLongExtra("clover.intent.extra.AMOUNT", 0);
+    private void setupViews(long amount, String orderId, String merchantId) {
+        TextView amountText = findViewById(R.id.text_amount);
+        amountText.setText(String.valueOf(amount));
 
-        // Example: Display a Toast message
-        Toast.makeText(this, "Custom tender launched. Amount: " + amount, Toast.LENGTH_SHORT).show();
+        TextView orderIdText = findViewById(R.id.text_orderid);
+        orderIdText.setText(orderId);
 
-        // Send the result back to Clover Register
-        Intent result = new Intent();
-        result.putExtra("clover.intent.extra.RESULT_TENDER", "Store Credit Processed");
-        setResult(RESULT_OK, result);
-        finish(); // Close the activity
+        TextView merchantIdText = findViewById(R.id.text_merchantid);
+        merchantIdText.setText(merchantId);
     }
+
+
+    private void handleCustomTender(Intent intent) {
+        long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
+        String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
+        String merchantId = intent.getStringExtra(Intents.EXTRA_MERCHANT_ID);
+
+        // Example UI interaction
+        setContentView(R.layout.activity_tender);
+        setupViews(amount, orderId, merchantId);
+
+        Button approveButton = findViewById(R.id.acceptButton);
+        approveButton.setOnClickListener(view -> {
+            Intent result = new Intent();
+            result.putExtra(Intents.EXTRA_AMOUNT, amount);
+            result.putExtra(Intents.EXTRA_CLIENT_ID, UUID.randomUUID().toString());
+            result.putExtra(Intents.EXTRA_NOTE, "Transaction approved");
+            setResult(RESULT_OK, result);
+            finish();
+        });
+
+        Button declineButton = findViewById(R.id.declineButton);
+        declineButton.setOnClickListener(view -> {
+            Intent result = new Intent();
+            result.putExtra(Intents.EXTRA_DECLINE_REASON, "Transaction declined by user");
+            setResult(RESULT_CANCELED, result);
+            finish();
+        });
+    }
+
 
     public void setAllButtonsEnabled(boolean enabled) {
         if (enabled) {
@@ -344,23 +405,27 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                tenderConnector = new TenderConnector(context, CloverAccount.getAccount(context), null);
+                tenderConnector = new TenderConnector(context, cloverAcc, null);
                 tenderConnector.connect();
             }
 
             @Override
             protected Exception doInBackground(Void... params) {
+                if (isCancelled()) return null; // Avoid errors if we cancelled in onPreExecute()
+
                 try {
                     Log.d("TENDER", "About to call checkAndCreateTender...");
 
                     // This checks if the custom tender exists; if not, it creates it.
-                    tenderConnector.checkAndCreateTender(
-                            getString(R.string.tender_name), // the label shown on the register
+                    Tender tender = tenderConnector.checkAndCreateTender(
+                            "Dicey Store Credit 2", // the label shown on the register
                             getPackageName(),
                             true,  // editable
                             false  // opens cash drawer
                     );
-                    Log.d("TENDER", "checkAndCreateTender call completed");
+
+                    Log.d("TENDER", "Tender created: " + tender.getId());
+
                 } catch (Exception exception) {
                     Log.e("TENDER", "Error creating tender", exception);
                     return exception;
@@ -370,10 +435,13 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             protected void onPostExecute(Exception exception) {
-                tenderConnector.disconnect();
-                tenderConnector = null;
+                if (tenderConnector != null) {
+                    tenderConnector.disconnect();
+                    tenderConnector = null;
+                }
                 Log.d("TENDER", "TenderConnector disconnected");
             }
         }.execute();
     }
+    
 }

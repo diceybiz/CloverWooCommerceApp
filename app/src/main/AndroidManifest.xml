@@ -4,15 +4,17 @@
 
     <!-- Network Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
 
     <!-- Clover Permissions -->
     <uses-permission android:name="com.clover.permission.MERCHANT_READ" />
+    <uses-permission android:name="com.clover.permission.MERCHANT_WRITE" />
     <uses-permission android:name="com.clover.permission.CUSTOMER_READ" />
     <uses-permission android:name="com.clover.permission.PAYMENT" />
-    <uses-permission android:name="com.clover.permission.CREATE_TENDER" />
-    <uses-permission android:name="com.clover.permission.REGISTER_TENDER" />
+    <!--  <uses-permission android:name="com.clover.permission.CREATE_TENDER" />
+    <uses-permission android:name="com.clover.permission.REGISTER_TENDER" />   -->
     <uses-permission android:name="com.clover.permission.ACTION_PAY" />
     <uses-permission android:name="com.clover.permission.MERCHANT_TENDERS" />
     <uses-permission android:name="com.clover.permission.ACTION_REFUND" />
@@ -26,7 +28,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="CloverWooCommerceApp"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CloverWooCommerceApp"
@@ -35,7 +37,7 @@
             android:name=".MainActivity"
             android:launchMode="singleTop"
             android:exported="true"
-            android:label="@string/app_name"
+            android:label="Dicey Store Credit"
             android:theme="@style/Theme.CloverWooCommerceApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,10 +47,14 @@
                 <action android:name="com.clover.intent.action.REGISTER_TENDER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="clover.intent.action.PAY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
 
             <meta-data
                 android:name="clover.intent.extra.TENDER_LABEL_KEY"
-                android:value="Store Credit Manager" />
+                android:value="Dicey Store Credit 2" />
 
             <meta-data
                 android:name="clover.intent.extra.TENDER_ENABLED"
