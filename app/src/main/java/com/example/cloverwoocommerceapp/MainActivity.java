@@ -80,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
+        Log.d(TAG, "onCreate: Intent action = " + intent.getAction());
         if ("clover.intent.action.PAY".equals(intent.getAction())) {
             handlePaymentIntent(intent);
         } else if ("com.clover.intent.action.REGISTER_TENDER".equals(intent.getAction())) {
@@ -121,10 +122,57 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data); // Always call the superclass first
+
+        Log.d(TAG, "onActivityResult called: requestCode=" + requestCode + ", resultCode=" + resultCode);
+
+        // Check if data is null
+        if (data == null) {
+            Log.e(TAG, "No data returned from tender activity");
+            Toast.makeText(this, "No response from tender. Please try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Extract values from the Intent
+        long amount = data.getLongExtra(Intents.EXTRA_AMOUNT, -1);
+        String clientId = data.getStringExtra(Intents.EXTRA_CLIENT_ID);
+        String note = data.getStringExtra(Intents.EXTRA_NOTE);
+        String declineReason = data.getStringExtra(Intents.EXTRA_DECLINE_REASON);
+
+        // Log the extracted data
+        Log.d(TAG, "Tender Activity Result: clientId=" + clientId + ", note=" + note + ", amount=" + amount);
+
+        // Handle results based on the resultCode
+        if (resultCode == RESULT_OK) {
+            Log.i(TAG, "Payment successful. Amount: " + amount + ", Note: " + note);
+            Toast.makeText(this, "Payment successful: " + note, Toast.LENGTH_SHORT).show();
+        } else if (resultCode == RESULT_CANCELED) {
+            Log.w(TAG, "Payment declined. Reason: " + declineReason);
+            Toast.makeText(this, "Payment declined. Reason: " + declineReason, Toast.LENGTH_SHORT).show();
+        } else {
+            Log.w(TAG, "Unknown resultCode received: " + resultCode);
+            Toast.makeText(this, "Unknown result from tender activity", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
+
     private void handlePaymentIntent(Intent intent) {
         long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
         String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
-        Tender tender = intent.getParcelableExtra(Intents.EXTRA_TENDER);
+        com.clover.sdk.v3.base.Tender tender = intent.getParcelableExtra(Intents.EXTRA_TENDER);
+
+        if (amount < 0) { // Check if the amount is invalid
+            Log.e(TAG, "Invalid or missing amount in tender response");
+            Log.d(TAG, "Amount received in handlePaymentIntent: " + amount);
+
+            Toast.makeText(this, "Payment amount missing. Please try again.", Toast.LENGTH_SHORT).show();
+            setResult(RESULT_CANCELED);
+            //finish();
+            return;
+        }
 
         Log.d(TAG, "Processing payment: Amount=" + amount + ", OrderId=" + orderId + ", Tender=" + tender);
 
@@ -183,6 +231,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleCustomTender(Intent intent) {
         long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
+        Log.d(TAG, "Passed Amount: " + amount);
         String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
         String merchantId = intent.getStringExtra(Intents.EXTRA_MERCHANT_ID);
 
