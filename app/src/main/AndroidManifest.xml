@@ -71,6 +71,7 @@
 
 
         </activity>
+        <activity android:name=".EmailInputActivity" />
     </application>
 
 </manifest>

@@ -10,7 +10,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.accounts.Account;
-import android.app.Activity;
 import android.os.AsyncTask;
 import android.content.Context;
 import android.util.Log;
@@ -23,7 +22,6 @@ import com.clover.sdk.v1.ResultStatus;
 import com.clover.sdk.v1.tender.Tender;
 import com.clover.sdk.v1.tender.TenderConnector;
 import com.clover.sdk.v1.Intents;
-import com.example.cloverwoocommerceapp.BuildConfig;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -36,7 +34,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
@@ -91,7 +88,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 
-
         // Initialize UI elements
         emailAutoComplete = findViewById(R.id.email_autocomplete);
         amountInput = findViewById(R.id.amount_edit_text);
@@ -111,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
         addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
         removeCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.DEBIT));
     }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -129,45 +126,37 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onActivityResult called: requestCode=" + requestCode + ", resultCode=" + resultCode);
 
         // Check if data is null
-        if (data == null) {
-            Log.e(TAG, "No data returned from tender activity");
-            Toast.makeText(this, "No response from tender. Please try again.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (requestCode == 101) {
+            // This is the result from EmailInputActivity
+            if (resultCode == RESULT_OK && data != null) {
+                // The user confirmed the store credit payment
+                long amount = data.getLongExtra(Intents.EXTRA_AMOUNT, -1);
+                String note = data.getStringExtra(Intents.EXTRA_NOTE);
+                String clientId = data.getStringExtra(Intents.EXTRA_CLIENT_ID);
 
-        // Extract values from the Intent
-        long amount = data.getLongExtra(Intents.EXTRA_AMOUNT, -1);
-        String clientId = data.getStringExtra(Intents.EXTRA_CLIENT_ID);
-        String note = data.getStringExtra(Intents.EXTRA_NOTE);
-        String declineReason = data.getStringExtra(Intents.EXTRA_DECLINE_REASON);
+                Log.d(TAG, "Store Credit Payment Complete. Amount=" + amount
+                        + ", note=" + note + ", clientId=" + clientId);
 
-        // Log the extracted data
-        Log.d(TAG, "Tender Activity Result: clientId=" + clientId + ", note=" + note + ", amount=" + amount);
-
-        // Handle results based on the resultCode
-        if (resultCode == RESULT_OK) {
-            Log.i(TAG, "Payment successful. Amount: " + amount + ", Note: " + note);
-            Toast.makeText(this, "Payment successful: " + note, Toast.LENGTH_SHORT).show();
-        } else if (resultCode == RESULT_CANCELED) {
-            Log.w(TAG, "Payment declined. Reason: " + declineReason);
-            Toast.makeText(this, "Payment declined. Reason: " + declineReason, Toast.LENGTH_SHORT).show();
-        } else {
-            Log.w(TAG, "Unknown resultCode received: " + resultCode);
-            Toast.makeText(this, "Unknown result from tender activity", Toast.LENGTH_SHORT).show();
+                // Return this back to Clover
+                setResult(RESULT_OK, data);
+            } else {
+                // They canceled or something else
+                setResult(RESULT_CANCELED);
+            }
+            finish();
         }
     }
 
 
-
-    private void handlePaymentIntent(Intent intent) {
+        private void handlePaymentIntent(Intent intent) {
         long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
         String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
         com.clover.sdk.v3.base.Tender tender = intent.getParcelableExtra(Intents.EXTRA_TENDER);
 
-        if (amount < 0) { // Check if the amount is invalid
+        if (amount <= 0) { // Check if the amount is invalid
             Log.e(TAG, "Invalid or missing amount in tender response");
+            Toast.makeText(this, "Invalid payment amount. Please try again.", Toast.LENGTH_SHORT).show();
             Log.d(TAG, "Amount received in handlePaymentIntent: " + amount);
-
             Toast.makeText(this, "Payment amount missing. Please try again.", Toast.LENGTH_SHORT).show();
             setResult(RESULT_CANCELED);
             //finish();
@@ -179,14 +168,11 @@ public class MainActivity extends AppCompatActivity {
         // Example: Display a Toast and send back a success result
         Toast.makeText(this, "Processing payment of $" + (amount / 100.0), Toast.LENGTH_SHORT).show();
 
-        // Prepare result intent
-        Intent result = new Intent();
-        result.putExtra(Intents.EXTRA_CLIENT_ID, UUID.randomUUID().toString());
-        result.putExtra(Intents.EXTRA_NOTE, "Payment successfully processed");
-
-        // Return the result
-        setResult(RESULT_OK, result);
-        finish();
+        // Instead of finishing, we launch EmailInputActivity:
+        Intent i = new Intent(this, EmailInputActivity.class);
+        i.putExtra(EmailInputActivity.EXTRA_AMOUNT, amount);
+        i.putExtra(EmailInputActivity.EXTRA_ORDER_ID, orderId);
+        startActivityForResult(i, 101);
     }
 
     //before startup, moving loggers to top level possible?
@@ -243,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
         approveButton.setOnClickListener(view -> {
             Intent result = new Intent();
             result.putExtra(Intents.EXTRA_AMOUNT, amount);
-            result.putExtra(Intents.EXTRA_CLIENT_ID, UUID.randomUUID().toString());
+            result.putExtra(Intents.EXTRA_CLIENT_ID, UUID.randomUUID().toString().substring(0, 32));
             result.putExtra(Intents.EXTRA_NOTE, "Transaction approved");
             setResult(RESULT_OK, result);
             finish();
@@ -437,12 +423,64 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    private void setupGetTenderButton() {
+        getTenderButton.setOnClickListener(view -> {
+            if (tenderConnector == null) {
+                Toast.makeText(this, "TenderConnector not connected. Reconnecting...", Toast.LENGTH_SHORT).show();
+                connect(); // Ensure connection before fetching
+                return;
+            }
+
+            new AsyncTask<Void, Void, Tender>() {
+                private Exception error;
+
+                @Override
+                protected Tender doInBackground(Void... voids) {
+                    try {
+                        // Replace this with the logic for fetching a specific tender
+                        return (Tender) tenderConnector.checkAndCreateTender(
+                                "Dicey Store Credit 2", // the label
+                                getPackageName(),
+                                true,
+                                false
+                        );
+                    } catch (Exception e) {
+                        error = e;
+                        cancel(true);
+                        return null;
+                    }
+                }
+
+                @Override
+                protected void onPostExecute(Tender tender) {
+                    if (tender != null) {
+                        String result = "Tender Found:\n" +
+                                "Label: " + tender.getLabel() + "\n" +
+                                "ID: " + tender.getId() + "\n";
+                        resultTextView.setText(result);
+                    } else {
+                        Toast.makeText(MainActivity.this, "No tender found.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                protected void onCancelled() {
+                    if (error != null) {
+                        Toast.makeText(MainActivity.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }.execute();
+        });
+    }
+
+
     // ADDED CODE: The createTenderType method
     private void createTenderType(final Context context) {
         Log.d(TAG, "createTenderType() called"); // Log statement
-        new AsyncTask<Void, Void, Exception>() {
+        new AsyncTask<Void, Void, Tender>() {
 
             private TenderConnector tenderConnector;
+            private Exception error;
 
             @Override
             protected void onPreExecute() {
@@ -451,6 +489,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("TENDER", "Clover Account = " + cloverAcc);
                 if (cloverAcc == null) {
                     Log.e("TENDER", "No Clover account found! Cannot create tender.");
+                    error = new Exception("Clover account not found");
+                    cancel(true);
                     return;
                 }
 
@@ -459,38 +499,54 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            protected Exception doInBackground(Void... params) {
+            protected Tender doInBackground(Void... params) {
                 if (isCancelled()) return null; // Avoid errors if we cancelled in onPreExecute()
 
                 try {
                     Log.d("TENDER", "About to call checkAndCreateTender...");
 
                     // This checks if the custom tender exists; if not, it creates it.
-                    Tender tender = tenderConnector.checkAndCreateTender(
+                    return tenderConnector.checkAndCreateTender(
                             "Dicey Store Credit 2", // the label shown on the register
                             getPackageName(),
                             true,  // editable
                             false  // opens cash drawer
                     );
 
-                    Log.d("TENDER", "Tender created: " + tender.getId());
-
-                } catch (Exception exception) {
-                    Log.e("TENDER", "Error creating tender", exception);
-                    return exception;
+                } catch (Exception e) {
+                    Log.e("TENDER", "Error creating tender", e);
+                    error = e;
+                    cancel(true);
+                    return null;
                 }
-                return null;
             }
 
             @Override
-            protected void onPostExecute(Exception exception) {
+            protected void onPostExecute(Tender tender) {
+                if (tenderConnector != null) {
+                    Log.d("TENDER", "Tender verified/created: " + tender.getId());
+                    Log.d("TENDER", "Label: " + tender.getLabel());
+                    Log.d("TENDER", "Opens Cash Drawer: " + tender.getOpensCashDrawer());
+                    Toast.makeText(context, "Tender configured: " + tender.getLabel(), Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.e("TENDER", "Tender verification failed.");
+                }
                 if (tenderConnector != null) {
                     tenderConnector.disconnect();
-                    tenderConnector = null;
+                    Log.d("TENDER", "TenderConnector disconnected");
                 }
-                Log.d("TENDER", "TenderConnector disconnected");
+            }
+
+            @Override
+            protected void onCancelled() {
+                super.onCancelled();
+                if (error != null) {
+                    Toast.makeText(context, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+                if (tenderConnector != null) {
+                    tenderConnector.disconnect();
+                }
             }
         }.execute();
     }
-    
 }
