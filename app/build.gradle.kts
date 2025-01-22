@@ -21,7 +21,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.cloverwoocommerceapp"
+        applicationId = "com.example.WooCredit"
         minSdk = 24
         //targetSdk = 34
         versionCode = 3
