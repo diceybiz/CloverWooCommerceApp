@@ -41,6 +41,7 @@ public class EmailInputActivity extends AppCompatActivity {
 
     private static final String TAG = "EmailInputActivity";
 
+    private TextView transactionAmountDisplay;
     private AutoCompleteTextView emailInput;
     private TextView balanceDisplay;
     private Button fetchBalanceButton;
@@ -61,10 +62,19 @@ public class EmailInputActivity extends AppCompatActivity {
         orderId = getIntent().getStringExtra(EXTRA_ORDER_ID);
 
         // Initialize UI
+        transactionAmountDisplay = findViewById(R.id.transaction_amount_display);
         emailInput = findViewById(R.id.email_input);
         balanceDisplay = findViewById(R.id.balance_display);
         fetchBalanceButton = findViewById(R.id.fetch_balance_button);
         confirmButton = findViewById(R.id.confirm_button);
+
+        // Display the transaction amount in dollars and cents
+        BigDecimal amountInDollars = BigDecimal.valueOf(transactionAmount)
+                .divide(BigDecimal.valueOf(100));
+        transactionAmountDisplay.setText("Transaction Amount: $" + amountInDollars);
+
+        // Initially, don't let them confirm
+        confirmButton.setEnabled(false);
 
         // Example: If you have a preload method in your singleton:
         WooCommerceApiSingleton.preloadCustomers(emailInput, 1, 100);
@@ -96,15 +106,18 @@ public class EmailInputActivity extends AppCompatActivity {
                         fetchWalletBalance(customer.getEmail());
                     } else {
                         balanceDisplay.setText("No matching customer found.");
+                        confirmButton.setEnabled(false);
                     }
                 } else {
                     balanceDisplay.setText("HTTP code: " + response.code() + " (or no customer found)");
+                    confirmButton.setEnabled(false);
                 }
             }
 
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 balanceDisplay.setText("Failed: " + t.getMessage());
+                confirmButton.setEnabled(false);
             }
         });
     }
@@ -121,38 +134,94 @@ public class EmailInputActivity extends AppCompatActivity {
 
                     BigDecimal currentBal = walletBalance.getBalanceAsBigDecimal();
                     balanceDisplay.setText("Balance: $" + currentBal);
+
+                    // 1) Convert transactionAmount to BigDecimal
+                    BigDecimal needed = BigDecimal.valueOf(transactionAmount)
+                            .divide(BigDecimal.valueOf(100));
+
+                    // 2) If currentBal >= needed, enable confirm
+                    if (currentBal.compareTo(needed) >= 0) {
+                        confirmButton.setEnabled(true);
+                    } else {
+                        confirmButton.setEnabled(false);
+                    }
                 } else {
                     balanceDisplay.setText("No balance found for user");
+                    confirmButton.setEnabled(false);
                 }
             }
 
             @Override
             public void onFailure(Call<WalletBalance> call, Throwable t) {
                 balanceDisplay.setText("Error: " + t.getMessage());
+                confirmButton.setEnabled(false);
             }
         });
     }
 
     private void finalizePayment() {
-        BigDecimal storeCredit = BigDecimal.ZERO;
-        if (customerCTX.getWalletBalance() != null) {
-            storeCredit = customerCTX.getWalletBalance().getBalanceAsBigDecimal();
+        if (customerCTX.getWalletBalance() == null) {
+            Toast.makeText(this, "No balance loaded yet!", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        BigDecimal needed = BigDecimal.valueOf(transactionAmount).divide(BigDecimal.valueOf(100));
-        if (storeCredit.compareTo(needed) < 0) {
+        java.math.BigDecimal currentBal = customerCTX.getWalletBalance().getBalanceAsBigDecimal();
+        java.math.BigDecimal needed = new java.math.BigDecimal(transactionAmount).divide(new java.math.BigDecimal("100"));
+
+        // Extra check in case user tries to confirm too soon
+        if (currentBal.compareTo(needed) < 0) {
             Toast.makeText(this, "Insufficient store credit!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Return success to the calling activity
-        Intent data = new Intent();
-        data.putExtra(Intents.EXTRA_AMOUNT, transactionAmount);
-        data.putExtra(Intents.EXTRA_CLIENT_ID,
-                UUID.randomUUID().toString().replace("-", "").substring(0, 32));
-        data.putExtra(Intents.EXTRA_NOTE, "Store credit payment complete");
+        // Actually remove/debit the store credit from the server
+        removeStoreCreditFromServer(
+                customerCTX.getCustomer().getEmail(),
+                needed,
+                new Callback<Transaction>() {
+                    @Override
+                    public void onResponse(Call<Transaction> call, Response<Transaction> response) {
+                        if (response.isSuccessful()) {
+                            // Payment is good! Return success to Clover
+                            Intent data = new Intent();
+                            data.putExtra(Intents.EXTRA_AMOUNT, transactionAmount);
+                            data.putExtra(Intents.EXTRA_CLIENT_ID,
+                                    UUID.randomUUID().toString().replace("-", "").substring(0, 32));
+                            data.putExtra(Intents.EXTRA_NOTE, "Store credit payment complete");
 
-        setResult(RESULT_OK, data);
-        finish();
+                            setResult(RESULT_OK, data);
+                            finish();
+
+                        } else {
+                            // Show error
+                            Toast.makeText(EmailInputActivity.this,
+                                    "Failed to remove store credit (HTTP " + response.code() + ")",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<Transaction> call, Throwable t) {
+                        Toast.makeText(EmailInputActivity.this,
+                                "Error removing store credit: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
+    private void removeStoreCreditFromServer(String email, java.math.BigDecimal amount, Callback<Transaction> callback) {
+        // Reuse your "wooCommerceApi.insertNewTransaction(...)" with transactionType=DEBIT
+        // or a dedicated "removeCredit" call. Example:
+
+        Transaction transaction = new Transaction(
+                amount.toPlainString(),
+                "debit",
+                "In-Store payment for order:" + orderId,
+                email
+        );
+
+        Call<Transaction> call = WooCommerceApiSingleton.getApi().insertNewTransaction(transaction);
+        call.enqueue(callback);
+    }
+
 }

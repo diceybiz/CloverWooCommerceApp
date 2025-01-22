@@ -6,7 +6,16 @@ android:layout_height="match_parent"
 android:orientation="vertical"
 android:padding="16dp">
 
-<EditText
+    <TextView
+    android:id="@+id/transaction_amount_display"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:textSize="18sp"
+    android:padding="8dp"
+    android:textColor="@android:color/black"
+    android:text="Transaction Amount: $0.00" />
+
+    <AutoCompleteTextView
     android:id="@+id/email_input"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
