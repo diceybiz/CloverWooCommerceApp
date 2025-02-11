@@ -93,7 +93,7 @@ public class EmailInputActivity extends AppCompatActivity {
     }
 
     private void fetchCustomerByEmail(String email) {
-        WooCommerceApi api = WooCommerceApiSingleton.getApi();
+        WooCommerceApi api = WooCommerceApiSingleton.getApi(this);
 
         Call<List<Customer>> call = api.getCustomerByEmail(email);
         call.enqueue(new Callback<List<Customer>>() {
@@ -123,7 +123,7 @@ public class EmailInputActivity extends AppCompatActivity {
     }
 
     private void fetchWalletBalance(String email) {
-        WooCommerceApi api = WooCommerceApiSingleton.getApi();
+        WooCommerceApi api = WooCommerceApiSingleton.getApi(this);
 
         api.getWalletBalance(email).enqueue(new Callback<WalletBalance>() {
             @Override
@@ -220,7 +220,7 @@ public class EmailInputActivity extends AppCompatActivity {
                 email
         );
 
-        Call<Transaction> call = WooCommerceApiSingleton.getApi().insertNewTransaction(transaction);
+        Call<Transaction> call = WooCommerceApiSingleton.getApi(this).insertNewTransaction(transaction);
         call.enqueue(callback);
     }
 

@@ -13,6 +13,9 @@ import android.accounts.Account;
 import android.os.AsyncTask;
 import android.content.Context;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -41,23 +44,32 @@ public class MainActivity extends AppCompatActivity {
     // ADDED CODE: TAG constant (for logging in createTenderType)
     private static final String TAG = "MainActivity"; // Or use MainActivity.class.getSimpleName()
 
-    // WooCommerce API constants,
-    //TODO move these to some sort of config, they shouldn't be hardcoded. fuck if i know where yet though
-    private static final String wooCommerceURL = "https://dicey.biz/wp-json/";
-    private static final String CONSUMER_KEY = "ck_fd49704c7f0abb0d51d8f410fc6aa5a3d0ca10e9";
-    private static final String CONSUMER_SECRET = "cs_c15cb676dc137fd0a2d30b8b711f7ff5107e31cb";
-
-    //Kellen has no idea what hes doing
-
-    // UI Elements
+       // UI Elements
     private EditText amountInput;
     private AutoCompleteTextView emailAutoComplete;
-    private Button fetchCustomerButton, addCreditButton, removeCreditButton, newTenderButton, getTenderButton;
+    private Button fetchCustomerButton, addCreditButton, removeCreditButton;
     private TextView currentBalanceView, resultTextView;
     private WooCommerceApi wooCommerceApi;
     private CustomerCTX customerCTX = new CustomerCTX();
     private final List<Customer> tempCustomerList = new ArrayList<>();
     private final List<String> emailList = new ArrayList<>();
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
 
     private enum transactionType {
         DEBIT("debit"),
@@ -95,8 +107,8 @@ public class MainActivity extends AppCompatActivity {
         addCreditButton = findViewById(R.id.add_button);
         removeCreditButton = findViewById(R.id.subtract_button);
         currentBalanceView = findViewById(R.id.result_text_view);
-        newTenderButton = findViewById(R.id.newTender);
-        getTenderButton = findViewById(R.id.getTender);
+        //newTenderButton = findViewById(R.id.newTender);
+        //getTenderButton = findViewById(R.id.getTender);
         resultTextView = findViewById(R.id.resultTextView);
 
         // Initialize Retrofit for WooCommerce API
@@ -177,6 +189,15 @@ public class MainActivity extends AppCompatActivity {
 
     //before startup, moving loggers to top level possible?
     private void initWooCommerceApi() {
+        // Obtain the WooCommerceApi instance using the singleton,
+        // which now reads credentials from secure SharedPreferences.
+        wooCommerceApi = WooCommerceApiSingleton.getApi(this);
+        fetchAllCustomers(1, 100);
+    }
+
+
+    /*
+    private void initWooCommerceApi() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
 
@@ -202,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         wooCommerceApi = retrofit.create(WooCommerceApi.class);
         fetchAllCustomers(1, 100);
     }
-
+*/
     private void setupViews(long amount, String orderId, String merchantId) {
         TextView amountText = findViewById(R.id.text_amount);
         amountText.setText(String.valueOf(amount));
@@ -422,7 +443,7 @@ public class MainActivity extends AppCompatActivity {
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
-
+/*
     private void setupGetTenderButton() {
         getTenderButton.setOnClickListener(view -> {
             if (tenderConnector == null) {
@@ -472,7 +493,7 @@ public class MainActivity extends AppCompatActivity {
             }.execute();
         });
     }
-
+*/
 
     // ADDED CODE: The createTenderType method
     private void createTenderType(final Context context) {
@@ -507,7 +528,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // This checks if the custom tender exists; if not, it creates it.
                     return tenderConnector.checkAndCreateTender(
-                            "Dicey Store Credit 2", // the label shown on the register
+                            "Dicey Credits", // the label shown on the register
                             getPackageName(),
                             true,  // editable
                             false  // opens cash drawer

@@ -1,0 +1,79 @@
+package com.example.cloverwoocommerceapp;
+
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKeys;
+import android.content.SharedPreferences;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+
+public class SettingsActivity extends AppCompatActivity {
+
+    public static final String PREFS_NAME = "woocommerce_credentials";
+    public static final String KEY_URL = "woocom_url";
+    public static final String KEY_CONSUMER_KEY = "consumer_key";
+    public static final String KEY_CONSUMER_SECRET = "consumer_secret";
+
+    private EditText editTextUrl, editTextConsumerKey, editTextConsumerSecret;
+    private Button buttonSave;
+    private SharedPreferences securePrefs;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_settings);
+
+        editTextUrl = findViewById(R.id.editTextUrl);
+        editTextConsumerKey = findViewById(R.id.editTextConsumerKey);
+        editTextConsumerSecret = findViewById(R.id.editTextConsumerSecret);
+        buttonSave = findViewById(R.id.buttonSave);
+
+        try {
+            String masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC);
+            securePrefs = EncryptedSharedPreferences.create(
+                    PREFS_NAME,
+                    masterKeyAlias,
+                    this,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+        } catch (GeneralSecurityException | IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to load secure preferences", Toast.LENGTH_SHORT).show();
+        }
+
+        // Pre-fill fields with stored values, if any
+        if (securePrefs != null) {
+            editTextUrl.setText(securePrefs.getString(KEY_URL, ""));
+            editTextConsumerKey.setText(securePrefs.getString(KEY_CONSUMER_KEY, ""));
+            editTextConsumerSecret.setText(securePrefs.getString(KEY_CONSUMER_SECRET, ""));
+        }
+
+        buttonSave.setOnClickListener(v -> {
+            if (securePrefs != null) {
+                securePrefs.edit()
+                        .putString(KEY_URL, editTextUrl.getText().toString())
+                        .putString(KEY_CONSUMER_KEY, editTextConsumerKey.getText().toString())
+                        .putString(KEY_CONSUMER_SECRET, editTextConsumerSecret.getText().toString())
+                        .apply();
+                        String savedUrl = securePrefs.getString(KEY_URL, "not found");
+                        String savedKey = securePrefs.getString(KEY_CONSUMER_KEY, "not found");
+                        String savedSecret = securePrefs.getString(KEY_CONSUMER_SECRET, "not found");
+                        Log.d("SettingsActivity", "Saved URL: " + savedUrl);
+                        Log.d("SettingsActivity", "Saved Consumer Key: " + savedKey);
+                        Log.d("SettingsActivity", "Saved Consumer Secret: " + savedSecret);
+
+                        // Reset the API instance so new credentials are used
+                        WooCommerceApiSingleton.resetApiInstance();
+
+                        Toast.makeText(SettingsActivity.this, "Settings saved", Toast.LENGTH_SHORT).show();
+                        finish(); // Optionally finish the activity after saving
+            }
+        });
+    }
+}

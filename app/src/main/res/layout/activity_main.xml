@@ -45,19 +45,6 @@
         android:layout_height="wrap_content"
         android:text="Subtract Credit" />
 
-    <!-- New Button for Creating Tender -->
-    <Button
-        android:id="@+id/newTender"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Create Tender" />
-
-    <!-- New Button for Getting Tenders -->
-    <Button
-        android:id="@+id/getTender"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Get Tenders" />
 
     <!-- TextView for Tender Results -->
     <TextView

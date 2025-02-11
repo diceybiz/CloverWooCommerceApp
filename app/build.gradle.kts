@@ -6,13 +6,20 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+
+
 android {
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     signingConfigs {
         create("releaseConfig") {
-            storeFile = file("C:\\Users\\super\\AndroidStudioProjects\\CloverWooCommerceApp\\my-release-key.jks")
-            storePassword = "password"
+            storeFile = file("C:\\Users\\super\\AndroidStudioProjects\\CloverWooCommerceApp\\my-release-key3.jks")
+            storePassword = "woopass1!"
             keyAlias = "my-key-alias"
-            keyPassword = "password"
+            keyPassword = "woopass2!"
             enableV1Signing = true
             enableV2Signing = false
         }
@@ -21,11 +28,15 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.WooCredit"
+        applicationId = "com.example.DiceyCredit"
         minSdk = 24
-        //targetSdk = 34
-        versionCode = 3
-        versionName = "2.0"
+        targetSdk = 30
+        versionCode = 11
+        versionName = "2.8"
+        ndk {
+            abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+        }
+
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -41,7 +52,7 @@ android {
     productFlavors {
         create("development") {
             dimension = "sdkDimension"
-            targetSdk = 33
+            targetSdk = 29
         }
         create("clover") {
             dimension = "sdkDimension"
@@ -111,6 +122,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
+    implementation("androidx.security:security-crypto:1.0.0")
     implementation("com.clover.sdk:clover-android-sdk:316.1")
     implementation("com.clover.sdk:clover-android-loyalty-kit:316.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")

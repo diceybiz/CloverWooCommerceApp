@@ -1,10 +1,17 @@
 package com.example.cloverwoocommerceapp;
 
 import android.os.Handler;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKeys;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -29,9 +36,18 @@ import java.util.List;
  */
 public class WooCommerceApiSingleton {
 
-    private static final String wooCommerceURL = "https://dicey.biz/wp-json/";
-    private static final String CONSUMER_KEY = "ck_fd49704c7f0abb0d51d8f410fc6aa5a3d0ca10e9";
-    private static final String CONSUMER_SECRET = "cs_c15cb676dc137fd0a2d30b8b711f7ff5107e31cb";
+    // Shared Preferences keys and file name (should match those in SettingsActivity)
+    public static final String PREFS_NAME = "woocommerce_credentials";
+    public static final String KEY_URL = "woocom_url";
+    public static final String KEY_CONSUMER_KEY = "consumer_key";
+    public static final String KEY_CONSUMER_SECRET = "consumer_secret";
+
+// Default fallback values if none are stored
+    private static final String DEFAULT_WOOCOMMERCE_URL = "https://yoursite.com/wp-json/";
+    private static final String DEFAULT_CONSUMER_KEY = "";
+    private static final String DEFAULT_CONSUMER_SECRET = "";
+
+
 
     private static WooCommerceApi apiInstance;
 
@@ -44,11 +60,42 @@ public class WooCommerceApiSingleton {
         // Private constructor to enforce singleton
     }
 
-    public static WooCommerceApi getApi() {
+    public static WooCommerceApi getApi(Context context) {
         if (apiInstance == null) {
             synchronized (WooCommerceApiSingleton.class) {
                 if (apiInstance == null) {
-                    // Build API
+                    // Load the credentials from secure SharedPreferences
+                    SharedPreferences securePrefs = null;
+                    try {
+                        String masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC);
+                        securePrefs = EncryptedSharedPreferences.create(
+                                PREFS_NAME,
+                                masterKeyAlias,
+                                context,
+                                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                        );
+                    } catch (GeneralSecurityException | IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    String wooCommerceURL = securePrefs != null
+                            ? securePrefs.getString(KEY_URL, DEFAULT_WOOCOMMERCE_URL)
+                            : DEFAULT_WOOCOMMERCE_URL;
+                    String CONSUMER_KEY = securePrefs != null
+                            ? securePrefs.getString(KEY_CONSUMER_KEY, DEFAULT_CONSUMER_KEY)
+                            : DEFAULT_CONSUMER_KEY;
+                    String CONSUMER_SECRET = securePrefs != null
+                            ? securePrefs.getString(KEY_CONSUMER_SECRET, DEFAULT_CONSUMER_SECRET)
+                            : DEFAULT_CONSUMER_SECRET;
+
+                    Log.d("WooCommerceApiSingleton", "Using WooCommerce URL: " + wooCommerceURL);
+                    Log.d("WooCommerceApiSingleton", "Using Consumer Key: " + CONSUMER_KEY);
+                    Log.d("WooCommerceApiSingleton", "Using Consumer Secret: " + CONSUMER_SECRET);
+
+
+
+                    // Build the API using Retrofit
                     HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
                     logging.setLevel(HttpLoggingInterceptor.Level.BODY);
 
@@ -79,6 +126,11 @@ public class WooCommerceApiSingleton {
         return apiInstance;
     }
 
+    public static void resetApiInstance() {
+        apiInstance = null;
+        Log.d("WooCommerceApiSingleton", "API instance reset. Will use new credentials on next request.");
+    }
+
     /**
      * Initiates preloading of customers, populates an AutoCompleteTextView with email addresses.
      *
@@ -91,7 +143,7 @@ public class WooCommerceApiSingleton {
     }
 
     private static void fetchAllCustomers(AutoCompleteTextView autoCompleteTextView, int page, int perPage) {
-        getApi().getAllCustomers(page, perPage).enqueue(new Callback<List<Customer>>() {
+        getApi(autoCompleteTextView.getContext()).getAllCustomers(page, perPage).enqueue(new Callback<List<Customer>>() {
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -122,6 +174,7 @@ public class WooCommerceApiSingleton {
             }
         });
     }
+
 
     private static void setupEmailAutocomplete(AutoCompleteTextView autoCompleteTextView) {
         ArrayAdapter<String> emailAdapter = new ArrayAdapter<>(
