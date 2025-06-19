@@ -3,7 +3,8 @@ import java.util.Date
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 
@@ -88,8 +89,9 @@ android {
         buildConfig = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.2"
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -107,6 +109,7 @@ configurations.all {
 }
 
 dependencies {
+
     implementation(platform("androidx.compose:compose-bom:2024.01.00"))
     implementation("androidx.core:core-ktx:1.15.0")
     implementation(libs.androidx.lifecycle.runtime.ktx.v287)
@@ -128,20 +131,22 @@ dependencies {
     implementation("androidx.security:security-crypto:1.0.0")
     implementation(libs.clover.android.sdk)
     implementation(libs.clover.android.loyalty.kit)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.retrofit)
     implementation("com.squareup.retrofit2:converter-gson:2.10.0")
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
     implementation(libs.gson)
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit.v115)
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    implementation(libs.junit)
+    implementation(libs.androidx.junit.v115)
+    implementation(libs.androidx.espresso.core)
+    implementation("androidx.compose.ui:ui-test-junit4")
+
+    implementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.compose.ui:ui-test-manifest")
 }
