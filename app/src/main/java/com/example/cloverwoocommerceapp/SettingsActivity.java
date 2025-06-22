@@ -1,9 +1,11 @@
 package com.example.cloverwoocommerceapp;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.security.crypto.EncryptedSharedPreferences;
@@ -27,6 +29,23 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+
+        try {
+            String versionName = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionName;
+
+            Log.d("AppVersion", "Version: " + versionName);
+
+            Toast.makeText(this, "App Version: " + versionName, Toast.LENGTH_LONG).show();
+
+            // Or display in a TextView:
+            TextView versionView = findViewById(R.id.textViewVersion);
+            versionView.setText("Version: " + versionName);
+
+        } catch (Exception e) {
+            Log.e("AppVersion", "Failed to get app version", e);
+        }
+
 
         editTextUrl = findViewById(R.id.editTextUrl);
         editTextConsumerKey = findViewById(R.id.editTextConsumerKey);
@@ -70,6 +89,11 @@ public class SettingsActivity extends AppCompatActivity {
 
                         // Reset the API instance so new credentials are used
                         WooCommerceApiSingleton.resetApiInstance();
+                        WooCommerceApiSingleton.getApi(this); // this = current Context
+
+                        Intent intent = new Intent(SettingsActivity.this, MainActivity.class); // replace with your real main
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
 
                         Toast.makeText(SettingsActivity.this, "Settings saved", Toast.LENGTH_SHORT).show();
                         finish(); // Optionally finish the activity after saving

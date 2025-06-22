@@ -108,7 +108,14 @@ public class WooCommerceApiSingleton {
                                                 .addQueryParameter("consumer_secret", CONSUMER_SECRET)
                                                 .build())
                                         .build();
-                                return chain.proceed(request);
+                                try {
+                                    okhttp3.Response response = chain.proceed(request);
+                                    Log.i("WooCommerceApi", "<-- " + response.code() + " " + request.url());
+                                    return response;
+                                } catch (IOException e) {
+                                    Log.e("WooCommerceApi", "Network error: " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+                                    throw e;
+                                }
                             })
                             .addInterceptor(logging)
                             .build();
