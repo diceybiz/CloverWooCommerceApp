@@ -28,6 +28,7 @@ import com.example.cloverwoocommerceapp.WalletBalance;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Singleton to manage:
@@ -100,6 +101,9 @@ public class WooCommerceApiSingleton {
                     logging.setLevel(HttpLoggingInterceptor.Level.BODY);
 
                     OkHttpClient client = new OkHttpClient.Builder()
+                            .connectTimeout(10, TimeUnit.SECONDS)
+                            .readTimeout(15, TimeUnit.SECONDS)
+                            .writeTimeout(15, TimeUnit.SECONDS)
                             .addInterceptor(chain -> {
                                 Request original = chain.request();
                                 Request request = original.newBuilder()
@@ -150,6 +154,9 @@ public class WooCommerceApiSingleton {
     }
 
     private static void fetchAllCustomers(AutoCompleteTextView autoCompleteTextView, int page, int perPage) {
+        Log.d("WooDebug", "Thread: " + Thread.currentThread().getName());
+        Log.d("WooDebug", "Starting fetchAllCustomers on page " + page);
+        Log.d("WooDebug", "API base URL: " + getApi(autoCompleteTextView.getContext()).toString());
         getApi(autoCompleteTextView.getContext()).getAllCustomers(page, perPage).enqueue(new Callback<List<Customer>>() {
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
