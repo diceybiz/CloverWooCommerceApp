@@ -1,35 +1,28 @@
 package com.example.cloverwoocommerceapp;
 
 import android.app.Activity;
-import android.app.ComponentCaller;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.accounts.Account;
-import android.os.AsyncTask;
 import android.content.Context;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.clover.sdk.util.CloverAccount;
-import com.clover.sdk.v1.ResultStatus;
 import com.clover.sdk.v1.tender.Tender;
 import com.clover.sdk.v1.tender.TenderConnector;
 import com.clover.sdk.v1.Intents;
