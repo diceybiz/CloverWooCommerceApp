@@ -1,4 +1,4 @@
-package com.example.cloverwoocommerceapp;
+package com.example.cloverwoocommerceapp.models;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.List;

@@ -1,5 +1,6 @@
 package com.example.cloverwoocommerceapp;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -91,11 +92,10 @@ public class SettingsActivity extends AppCompatActivity {
                         WooCommerceApiSingleton.resetApiInstance();
                         WooCommerceApiSingleton.getApi(this); // this = current Context
 
-                        Intent intent = new Intent(SettingsActivity.this, MainActivity.class); // replace with your real main
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
 
                         Toast.makeText(SettingsActivity.this, "Settings saved", Toast.LENGTH_SHORT).show();
+                        setResult(Activity.RESULT_OK);
+
                         finish(); // Optionally finish the activity after saving
             }
         });

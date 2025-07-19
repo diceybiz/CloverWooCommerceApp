@@ -1,8 +1,11 @@
 package com.example.cloverwoocommerceapp;
 
+import android.app.Activity;
+import android.app.ComponentCaller;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -17,6 +20,11 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -25,26 +33,27 @@ import com.clover.sdk.v1.ResultStatus;
 import com.clover.sdk.v1.tender.Tender;
 import com.clover.sdk.v1.tender.TenderConnector;
 import com.clover.sdk.v1.Intents;
+import com.example.cloverwoocommerceapp.models.Customer;
+import com.example.cloverwoocommerceapp.models.CustomerCTX;
+import com.example.cloverwoocommerceapp.models.Transaction;
+import com.example.cloverwoocommerceapp.models.WalletBalance;
 
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
     // ADDED CODE: TAG constant (for logging in createTenderType)
     private static final String TAG = "MainActivity"; // Or use MainActivity.class.getSimpleName()
 
-       // UI Elements
+    // UI Elements
     private EditText amountInput;
     private AutoCompleteTextView emailAutoComplete;
     private Button fetchCustomerButton, addCreditButton, removeCreditButton;
@@ -53,23 +62,6 @@ public class MainActivity extends AppCompatActivity {
     private CustomerCTX customerCTX = new CustomerCTX();
     private final List<Customer> tempCustomerList = new ArrayList<>();
     private final List<String> emailList = new ArrayList<>();
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
-            Intent intent = new Intent(this, SettingsActivity.class);
-            startActivity(intent);
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
 
     private enum transactionType {
         DEBIT("debit"),
@@ -80,9 +72,32 @@ public class MainActivity extends AppCompatActivity {
             this.typeValue = typeValue;
         }
     }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        Log.d("mainActivity", "creatOptionsMenu");
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
 
-    private TenderConnector tenderConnector;
-    private Account account;
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        Log.d("mainActivity", "optionsItemSelected");
+        if (item.getItemId() == R.id.action_settings) {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            settingsActivityResultLauncher.launch(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private final ActivityResultLauncher<Intent> settingsActivityResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    WooCommerceApiSingleton.preloadCustomers(emailAutoComplete,1, 100);
+                    Log.d("mainActivity", "reran fetch autofill list");
+                }
+            });
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -99,7 +114,6 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-
         // Initialize UI elements
         emailAutoComplete = findViewById(R.id.email_autocomplete);
         amountInput = findViewById(R.id.amount_edit_text);
@@ -107,8 +121,6 @@ public class MainActivity extends AppCompatActivity {
         addCreditButton = findViewById(R.id.add_button);
         removeCreditButton = findViewById(R.id.subtract_button);
         currentBalanceView = findViewById(R.id.result_text_view);
-        //newTenderButton = findViewById(R.id.newTender);
-        //getTenderButton = findViewById(R.id.getTender);
         resultTextView = findViewById(R.id.resultTextView);
 
         // Initialize Retrofit for WooCommerce API
@@ -118,6 +130,7 @@ public class MainActivity extends AppCompatActivity {
         fetchCustomerButton.setOnClickListener(view -> fetchCustomerByEmail());
         addCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.CREDIT));
         removeCreditButton.setOnClickListener(view -> updateStoreCredit(transactionType.DEBIT));
+        setAddAndSubtractButtonsEnabled(false);
     }
 
     @Override
@@ -131,35 +144,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data); // Always call the superclass first
-
-        Log.d(TAG, "onActivityResult called: requestCode=" + requestCode + ", resultCode=" + resultCode);
-
-        // Check if data is null
-        if (requestCode == 101) {
-            // This is the result from EmailInputActivity
-            if (resultCode == RESULT_OK && data != null) {
-                // The user confirmed the store credit payment
-                long amount = data.getLongExtra(Intents.EXTRA_AMOUNT, -1);
-                String note = data.getStringExtra(Intents.EXTRA_NOTE);
-                String clientId = data.getStringExtra(Intents.EXTRA_CLIENT_ID);
-
-                Log.d(TAG, "Store Credit Payment Complete. Amount=" + amount
-                        + ", note=" + note + ", clientId=" + clientId);
-
-                // Return this back to Clover
-                setResult(RESULT_OK, data);
-            } else {
-                // They canceled or something else
-                setResult(RESULT_CANCELED);
-            }
-            finish();
-        }
-    }
-
-
         private void handlePaymentIntent(Intent intent) {
         long amount = intent.getLongExtra(Intents.EXTRA_AMOUNT, 0);
         String orderId = intent.getStringExtra(Intents.EXTRA_ORDER_ID);
@@ -168,8 +152,6 @@ public class MainActivity extends AppCompatActivity {
         if (amount <= 0) { // Check if the amount is invalid
             Log.e(TAG, "Invalid or missing amount in tender response");
             Toast.makeText(this, "Invalid payment amount. Please try again.", Toast.LENGTH_SHORT).show();
-            Log.d(TAG, "Amount received in handlePaymentIntent: " + amount);
-            Toast.makeText(this, "Payment amount missing. Please try again.", Toast.LENGTH_SHORT).show();
             setResult(RESULT_CANCELED);
             //finish();
             return;
@@ -184,46 +166,38 @@ public class MainActivity extends AppCompatActivity {
         Intent i = new Intent(this, EmailInputActivity.class);
         i.putExtra(EmailInputActivity.EXTRA_AMOUNT, amount);
         i.putExtra(EmailInputActivity.EXTRA_ORDER_ID, orderId);
-        startActivityForResult(i, 101);
+        handlePaymentActivityResultLauncher.launch(i);
     }
 
+    private final ActivityResultLauncher<Intent> handlePaymentActivityResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                Log.d(TAG, "Activity result received");
+
+                Intent data = result.getData();
+
+                if (result.getResultCode() == RESULT_OK && data != null) {
+                    long amount = data.getLongExtra(Intents.EXTRA_AMOUNT, -1);
+                    String note = data.getStringExtra(Intents.EXTRA_NOTE);
+                    String clientId = data.getStringExtra(Intents.EXTRA_CLIENT_ID);
+
+                    Log.d(TAG, "Store Credit Payment Complete. Amount=" + amount
+                            + ", note=" + note + ", clientId=" + clientId);
+
+                    setResult(RESULT_OK, data);
+                } else {
+                    setResult(RESULT_CANCELED);
+                }
+
+                finish();
+            });
     //before startup, moving loggers to top level possible?
     private void initWooCommerceApi() {
         // Obtain the WooCommerceApi instance using the singleton,
         // which now reads credentials from secure SharedPreferences.
         wooCommerceApi = WooCommerceApiSingleton.getApi(this);
-        fetchAllCustomers(1, 100);
+        WooCommerceApiSingleton.preloadCustomers(emailAutoComplete,1, 100);
     }
 
-
-    /*
-    private void initWooCommerceApi() {
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
-
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(chain -> {
-                    Request original = chain.request();
-                    Request request = original.newBuilder()
-                            .url(original.url().newBuilder()
-                                    .addQueryParameter("consumer_key", CONSUMER_KEY)
-                                    .addQueryParameter("consumer_secret", CONSUMER_SECRET)
-                                    .build())
-                            .build();
-                    return chain.proceed(request);
-                })
-                .addInterceptor(logging)
-                .build();
-
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(wooCommerceURL)
-                .addConverterFactory(GsonConverterFactory.create())
-                .client(client)
-                .build();
-        wooCommerceApi = retrofit.create(WooCommerceApi.class);
-        fetchAllCustomers(1, 100);
-    }
-*/
     private void setupViews(long amount, String orderId, String merchantId) {
         TextView amountText = findViewById(R.id.text_amount);
         amountText.setText(String.valueOf(amount));
@@ -278,69 +252,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void connect() {
-        disconnect();
-        if (account != null) {
-            tenderConnector = new TenderConnector(this, account, null);
-            tenderConnector.connect();
+    public void setAddAndSubtractButtonsEnabled(boolean enabled) {
+        if (enabled) {
+            addCreditButton.setEnabled(true);
+            removeCreditButton.setEnabled(true);
+        } else {
+            addCreditButton.setEnabled(false);
+            removeCreditButton.setEnabled(false);
         }
     }
 
-    private void disconnect() {
-        if (tenderConnector != null) {
-            tenderConnector.disconnect();
-            tenderConnector = null;
-        }
+    public void setSearchButtonEnabled(boolean enabled){
+        fetchCustomerButton.setEnabled(enabled);
     }
 
-    private void fetchAllCustomers(int page, int perPage) {
-        Call<List<Customer>> call = wooCommerceApi.getAllCustomers(page, perPage);
-        call.enqueue(new Callback<List<Customer>>() {
-            @Override
-            public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    tempCustomerList.addAll(response.body());
-                }
-                int totalPages = Integer.parseInt(response.headers().get("X-WP-TotalPages") != null ? response.headers().get("X-WP-TotalPages") : "1");
-                if (page < totalPages) {
-                    new Handler().postDelayed(() -> fetchAllCustomers(page + 1, perPage), 500);
-                } else {
-                    for (Customer customer : tempCustomerList) {
-                        emailList.add(customer.getEmail());
-                    }
-                    tempCustomerList.clear();
-                    setupEmailSearch();
-                }
-            }
 
-            @Override
-            public void onFailure(Call<List<Customer>> call, Throwable t) {
-            }
-        });
-    }
-
-    private void setupEmailSearch() {
-        ArrayAdapter<String> emailAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, emailList);
-        emailAutoComplete.setAdapter(emailAdapter);
-        emailAutoComplete.setThreshold(2);
-    }
 
     private void fetchCustomerByEmail() {
         customerCTX = new CustomerCTX();
-        setAllButtonsEnabled(false);
         String email = emailAutoComplete.getText().toString();
+        setSearchButtonEnabled(false);
         if (email.isEmpty()) {
             showToast("Please enter a email");
-            setAllButtonsEnabled(true);
+            setSearchButtonEnabled(true);
             return;
         }
         Call<List<Customer>> call = wooCommerceApi.getCustomerByEmail(email);
         call.enqueue(new Callback<List<Customer>>() {
-            public void onServiceSuccess(Tender result, ResultStatus status) {
-                String text = "Custom Tender:\n";
-                text += "  " + result.getId() + " , " + result.getLabel() + " , " + result.getLabelKey() + " , " + result.getEnabled() + " , " + result.getOpensCashDrawer() + "\n";
-                resultTextView.setText(text);
-            }
 
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
@@ -352,24 +290,21 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         currentBalanceView.setText("please enter a valid customer phone number");
                         showToast("Customer not found");
-                        setAllButtonsEnabled(true);
+                        setSearchButtonEnabled(true);
                     }
                 } else {
                     currentBalanceView.setText("HTTP code: " + response.code());
                     showToast("the response was empty");
-                    setAllButtonsEnabled(true);
+                    setSearchButtonEnabled(true);
                 }
             }
 
             @Override
             public void onFailure(Call<List<Customer>> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
-                setAllButtonsEnabled(true);
+                setSearchButtonEnabled(true);
             }
 
-            public void onServiceFailure(ResultStatus status) {
-                resultTextView.setText(status.getStatusMessage());
-            }
         });
     }
 
@@ -382,23 +317,23 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<WalletBalance>() {
             @Override
             public void onResponse(Call<WalletBalance> call, Response<WalletBalance> response) {
-                setAllButtonsEnabled(true);
                 if (response.isSuccessful() && response.body() != null) {
                     customerCTX.setWalletBalance(response.body());
                     currentBalanceView.setText("Customer: " + customerCTX.getCustomer().getFirstName() + " "
                             + customerCTX.getCustomer().getLastName() + " | Balance: "
                             + customerCTX.getWalletBalance().getBalanceAsBigDecimal());
+                    setAllButtonsEnabled(true);
                 } else {
                     currentBalanceView.setText("there is an error with the balance for this user");
                     showToast("balance not found");
-                    setAllButtonsEnabled(true);
+                    setSearchButtonEnabled(true);
                 }
             }
 
             @Override
             public void onFailure(Call<WalletBalance> call, Throwable t) {
                 showToast("Failed to reach WooCommerce: " + t.getMessage());
-                setAllButtonsEnabled(true);
+                setSearchButtonEnabled(true);
             }
         });
     }
@@ -426,6 +361,7 @@ public class MainActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     showToast("Store credit " + type.typeValue + "ed successfully");
                     getWalletBalanceData();
+                    setAllButtonsEnabled(true);
                 } else {
                     showToast("Failed to " + type + " store credit");
                     setAllButtonsEnabled(true);
@@ -451,132 +387,61 @@ public class MainActivity extends AppCompatActivity {
         WooCommerceApiSingleton.resetApiInstance();
     }
 
-
-/*
-    private void setupGetTenderButton() {
-        getTenderButton.setOnClickListener(view -> {
-            if (tenderConnector == null) {
-                Toast.makeText(this, "TenderConnector not connected. Reconnecting...", Toast.LENGTH_SHORT).show();
-                connect(); // Ensure connection before fetching
-                return;
-            }
-
-            new AsyncTask<Void, Void, Tender>() {
-                private Exception error;
-
-                @Override
-                protected Tender doInBackground(Void... voids) {
-                    try {
-                        // Replace this with the logic for fetching a specific tender
-                        return (Tender) tenderConnector.checkAndCreateTender(
-                                "Dicey Store Credit 2", // the label
-                                getPackageName(),
-                                true,
-                                false
-                        );
-                    } catch (Exception e) {
-                        error = e;
-                        cancel(true);
-                        return null;
-                    }
-                }
-
-                @Override
-                protected void onPostExecute(Tender tender) {
-                    if (tender != null) {
-                        String result = "Tender Found:\n" +
-                                "Label: " + tender.getLabel() + "\n" +
-                                "ID: " + tender.getId() + "\n";
-                        resultTextView.setText(result);
-                    } else {
-                        Toast.makeText(MainActivity.this, "No tender found.", Toast.LENGTH_SHORT).show();
-                    }
-                }
-
-                @Override
-                protected void onCancelled() {
-                    if (error != null) {
-                        Toast.makeText(MainActivity.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }
-            }.execute();
-        });
-    }
-*/
-
     // ADDED CODE: The createTenderType method
     private void createTenderType(final Context context) {
-        Log.d(TAG, "createTenderType() called"); // Log statement
-        new AsyncTask<Void, Void, Tender>() {
+        Log.d(TAG, "createTenderType() called");
 
-            private TenderConnector tenderConnector;
-            private Exception error;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
 
-            @Override
-            protected void onPreExecute() {
-                super.onPreExecute();
-                Account cloverAcc = CloverAccount.getAccount(context);
-                Log.d("TENDER", "Clover Account = " + cloverAcc);
-                if (cloverAcc == null) {
-                    Log.e("TENDER", "No Clover account found! Cannot create tender.");
-                    error = new Exception("Clover account not found");
-                    cancel(true);
-                    return;
-                }
+        executor.execute(() -> {
+            TenderConnector tenderConnector = null;
+            Tender tender = null;
+            Exception error = null;
 
+            Account cloverAcc = CloverAccount.getAccount(context);
+            Log.d("TENDER", "Clover Account = " + cloverAcc);
+
+            if (cloverAcc == null) {
+                error = new Exception("Clover account not found");
+            } else {
                 tenderConnector = new TenderConnector(context, cloverAcc, null);
                 tenderConnector.connect();
-            }
-
-            @Override
-            protected Tender doInBackground(Void... params) {
-                if (isCancelled()) return null; // Avoid errors if we cancelled in onPreExecute()
 
                 try {
                     Log.d("TENDER", "About to call checkAndCreateTender...");
-
-                    // This checks if the custom tender exists; if not, it creates it.
-                    return tenderConnector.checkAndCreateTender(
-                            "Dicey Credits", // the label shown on the register
-                            getPackageName(),
-                            true,  // editable
-                            false  // opens cash drawer
+                    tender = tenderConnector.checkAndCreateTender(
+                            "Dicey Credits",
+                            context.getPackageName(),
+                            true,
+                            false
                     );
-
                 } catch (Exception e) {
-                    Log.e("TENDER", "Error creating tender", e);
                     error = e;
-                    cancel(true);
-                    return null;
                 }
             }
 
-            @Override
-            protected void onPostExecute(Tender tender) {
-                if (tenderConnector != null) {
-                    Log.d("TENDER", "Tender verified/created: " + tender.getId());
-                    Log.d("TENDER", "Label: " + tender.getLabel());
-                    Log.d("TENDER", "Opens Cash Drawer: " + tender.getOpensCashDrawer());
-                    Toast.makeText(context, "Tender configured: " + tender.getLabel(), Toast.LENGTH_SHORT).show();
-                } else {
-                    Log.e("TENDER", "Tender verification failed.");
-                }
-                if (tenderConnector != null) {
-                    tenderConnector.disconnect();
+            // Switch back to main thread
+            Tender finalTender = tender;
+            TenderConnector finalConnector = tenderConnector;
+            Exception finalError = error;
+
+            handler.post(() -> {
+                if (finalConnector != null) {
+                    finalConnector.disconnect();
                     Log.d("TENDER", "TenderConnector disconnected");
                 }
-            }
 
-            @Override
-            protected void onCancelled() {
-                super.onCancelled();
-                if (error != null) {
-                    Toast.makeText(context, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                if (finalError != null) {
+                    Log.e("TENDER", "Error: ", finalError);
+                    Toast.makeText(context, "Error: " + finalError.getMessage(), Toast.LENGTH_SHORT).show();
+                } else if (finalTender != null) {
+                    Log.d("TENDER", "Tender verified/created: " + finalTender.getId());
+                    Toast.makeText(context, "Tender configured: " + finalTender.getLabel(), Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.e("TENDER", "Unknown error occurred");
                 }
-                if (tenderConnector != null) {
-                    tenderConnector.disconnect();
-                }
-            }
-        }.execute();
+            });
+        });
     }
 }

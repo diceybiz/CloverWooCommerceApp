@@ -21,10 +21,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-import com.example.cloverwoocommerceapp.CustomerCTX;
-import com.example.cloverwoocommerceapp.Customer;
-import com.example.cloverwoocommerceapp.WooCommerceApi;
-import com.example.cloverwoocommerceapp.WalletBalance;
+import com.example.cloverwoocommerceapp.models.Customer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -160,6 +157,7 @@ public class WooCommerceApiSingleton {
         getApi(autoCompleteTextView.getContext()).getAllCustomers(page, perPage).enqueue(new Callback<List<Customer>>() {
             @Override
             public void onResponse(Call<List<Customer>> call, Response<List<Customer>> response) {
+                emailList.clear();
                 if (response.isSuccessful() && response.body() != null) {
                     tempCustomerList.addAll(response.body());
                 }

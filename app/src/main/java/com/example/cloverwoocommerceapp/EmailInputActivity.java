@@ -1,13 +1,9 @@
 package com.example.cloverwoocommerceapp;
 
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Log;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,16 +15,15 @@ import com.clover.sdk.v1.Intents;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
-import java.math.BigDecimal;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import com.example.cloverwoocommerceapp.CustomerCTX;
-import com.example.cloverwoocommerceapp.Customer;
-import com.example.cloverwoocommerceapp.WooCommerceApi;
-import com.example.cloverwoocommerceapp.WalletBalance;
+import com.example.cloverwoocommerceapp.models.Customer;
+import com.example.cloverwoocommerceapp.models.CustomerCTX;
+import com.example.cloverwoocommerceapp.models.Transaction;
+import com.example.cloverwoocommerceapp.models.WalletBalance;
 
 /**
  * Dedicated activity for collecting an email

@@ -1,4 +1,4 @@
-package com.example.cloverwoocommerceapp;
+package com.example.cloverwoocommerceapp.models;
 
 import java.math.BigDecimal;
 

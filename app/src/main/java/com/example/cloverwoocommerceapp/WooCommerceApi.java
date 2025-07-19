@@ -1,5 +1,9 @@
 package com.example.cloverwoocommerceapp;
 
+import com.example.cloverwoocommerceapp.models.Customer;
+import com.example.cloverwoocommerceapp.models.Transaction;
+import com.example.cloverwoocommerceapp.models.WalletBalance;
+
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;

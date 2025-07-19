@@ -1,4 +1,4 @@
-package com.example.cloverwoocommerceapp;
+package com.example.cloverwoocommerceapp.models;
 
 public class Billing {
 
