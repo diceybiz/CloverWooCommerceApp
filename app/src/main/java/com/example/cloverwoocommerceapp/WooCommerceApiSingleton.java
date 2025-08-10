@@ -41,9 +41,9 @@ public class WooCommerceApiSingleton {
     public static final String KEY_CONSUMER_SECRET = "consumer_secret";
 
 // Default fallback values if none are stored
-    private static final String DEFAULT_WOOCOMMERCE_URL = "https://yoursite.com/wp-json/";
-    private static final String DEFAULT_CONSUMER_KEY = "";
-    private static final String DEFAULT_CONSUMER_SECRET = "";
+    private static final String DEFAULT_WOOCOMMERCE_URL = "https://dicey.biz/wp-json/";
+    private static final String DEFAULT_CONSUMER_KEY = "ck_60d6a06eb931b79ebb6739e468b1807aa1cc27a8";
+    private static final String DEFAULT_CONSUMER_SECRET = "cs_e4f0884690cd366eb45064fbd347a498777b95b3";
 
 
 

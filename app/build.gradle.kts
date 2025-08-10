@@ -32,8 +32,8 @@ android {
         applicationId = "com.example.DiceyCredit"
         minSdk = 24
         targetSdk = 30
-        versionCode = 16
-        versionName = "3.07"
+        versionCode = 17
+        versionName = "3.08"
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
