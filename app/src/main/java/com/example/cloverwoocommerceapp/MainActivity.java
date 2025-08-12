@@ -270,7 +270,7 @@ public class MainActivity extends AppCompatActivity {
             setSearchButtonEnabled(true);
             return;
         }
-        Call<List<Customer>> call = wooCommerceApi.getCustomerByEmail(email);
+        Call<List<Customer>> call = WooCommerceApiSingleton.getApi(this).getCustomerByEmail(email);
         call.enqueue(new Callback<List<Customer>>() {
 
             @Override
@@ -306,7 +306,8 @@ public class MainActivity extends AppCompatActivity {
             showToast("No customer is selected, please try again");
             return;
         }
-        Call<WalletBalance> call = wooCommerceApi.getWalletBalance(customerCTX.getCustomer().getEmail());
+        Call<WalletBalance> call = WooCommerceApiSingleton.getApi(this).getWalletBalance(customerCTX.getCustomer().getEmail());
+
         call.enqueue(new Callback<WalletBalance>() {
             @Override
             public void onResponse(Call<WalletBalance> call, Response<WalletBalance> response) {
@@ -347,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Transaction transaction = new Transaction(amount, type.typeValue, "Store credit adjustment", customerCTX.getCustomer().getEmail());
-        Call<Transaction> call = wooCommerceApi.insertNewTransaction(transaction);
+        Call<Transaction> call = WooCommerceApiSingleton.getApi(this).insertNewTransaction(transaction);
         call.enqueue(new Callback<Transaction>() {
             @Override
             public void onResponse(Call<Transaction> call, Response<Transaction> response) {
