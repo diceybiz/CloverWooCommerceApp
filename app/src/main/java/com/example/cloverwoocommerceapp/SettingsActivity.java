@@ -110,7 +110,7 @@ public class SettingsActivity extends AppCompatActivity {
                 }catch (Exception e){
                     Log.e("SettingsActivity", "Invalid settings input", e);
 
-                    Toast.makeText(SettingsActivity.this, "invalid or missing info, settings were not saved", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(SettingsActivity.this, "there was a problem with the settings params, please validate the inputs and save again", Toast.LENGTH_SHORT).show();
                     setResult(Activity.RESULT_CANCELED);
                     finish();
                 }
