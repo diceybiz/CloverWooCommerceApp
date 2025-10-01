@@ -197,4 +197,11 @@ public class WooCommerceApiSingleton {
         autoCompleteTextView.setAdapter(emailAdapter);
         autoCompleteTextView.setThreshold(2); // Start suggesting after 2 characters
     }
+
+    public static Retrofit testApi(String baseUrl) {
+        return new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+    }
 }

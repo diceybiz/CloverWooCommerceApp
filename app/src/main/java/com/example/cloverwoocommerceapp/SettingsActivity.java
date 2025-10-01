@@ -12,6 +12,8 @@ import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
 import android.content.SharedPreferences;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.security.GeneralSecurityException;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -75,7 +77,17 @@ public class SettingsActivity extends AppCompatActivity {
 
         buttonSave.setOnClickListener(v -> {
             if (securePrefs != null) {
-                securePrefs.edit()
+                try{
+                    try{
+                        WooCommerceApiSingleton.testApi(editTextUrl.getText().toString());
+                    }catch (Exception e){
+                        Toast.makeText(SettingsActivity.this, "the URL is malformed", Toast.LENGTH_SHORT).show();
+                        setResult(Activity.RESULT_CANCELED);
+                        finish();
+                        return;
+                    }
+
+                    securePrefs.edit()
                         .putString(KEY_URL, editTextUrl.getText().toString())
                         .putString(KEY_CONSUMER_KEY, editTextConsumerKey.getText().toString())
                         .putString(KEY_CONSUMER_SECRET, editTextConsumerSecret.getText().toString())
@@ -89,13 +101,19 @@ public class SettingsActivity extends AppCompatActivity {
 
                         // Reset the API instance so new credentials are used
                         WooCommerceApiSingleton.resetApiInstance();
-                        WooCommerceApiSingleton.getApi(this); // this = current Context
-
+                        WooCommerceApiSingleton.getApi(this);// this = current Context
 
                         Toast.makeText(SettingsActivity.this, "Settings saved", Toast.LENGTH_SHORT).show();
                         setResult(Activity.RESULT_OK);
 
                         finish(); // Optionally finish the activity after saving
+                }catch (Exception e){
+                    Log.e("SettingsActivity", "Invalid settings input", e);
+
+                    Toast.makeText(SettingsActivity.this, "invalid or missing info, settings were not saved", Toast.LENGTH_SHORT).show();
+                    setResult(Activity.RESULT_CANCELED);
+                    finish();
+                }
             }
         });
     }
