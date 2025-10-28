@@ -2,6 +2,7 @@ package com.example.cloverwoocommerceapp;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +22,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKeys;
 
 import com.clover.sdk.util.CloverAccount;
 import com.clover.sdk.v1.tender.Tender;
@@ -35,6 +38,8 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -91,10 +96,39 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+    private void checkPresavedCreds(Context context) {
+        try {
+            String masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC);
+            SharedPreferences securePrefs = EncryptedSharedPreferences.create(
+                    WooCommerceApiSingleton.PREFS_NAME,
+                    masterKeyAlias,
+                    context,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+
+            String url = securePrefs.getString(SettingsActivity.KEY_URL, null);
+            String key = securePrefs.getString(SettingsActivity.KEY_CONSUMER_KEY, null);
+            String secret = securePrefs.getString(SettingsActivity.KEY_CONSUMER_SECRET, null);
+
+            try{
+                WooCommerceApiSingleton.testApi(url);
+            }catch (Exception e){
+                Log.e(TAG, "bad url " + e.getMessage());
+                securePrefs.edit().remove(SettingsActivity.KEY_URL).apply();
+            }
+
+        } catch (GeneralSecurityException | IOException e) {
+            Log.e(TAG, "Error checking secure prefs: " + e.getMessage());
+        }
+    }
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        checkPresavedCreds(this);
 
         Intent intent = getIntent();
         Log.d(TAG, "onCreate: Intent action = " + intent.getAction());
